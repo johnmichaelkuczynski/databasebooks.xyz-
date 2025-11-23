@@ -396,7 +396,42 @@ ${result.database}
 
             <div className="flex-1">
               <AnimatePresence mode="wait">
-                {!hasResult || !result ? (
+                {isProcessing ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="border-4 border-primary rounded-lg flex flex-col bg-white p-8 shadow-xl"
+                    style={{minHeight: 'calc(100vh - 20rem)'}}
+                  >
+                    <div className="flex items-center gap-4 mb-6 pb-6 border-b-2 border-gray-200">
+                      <div className="relative">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-2xl font-bold text-primary uppercase tracking-wide">Processing Analysis</h3>
+                        <p className="text-base text-muted-foreground mt-1">Using {selectedLLM.toUpperCase()} • Streaming output in real-time</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 bg-gray-50 rounded-lg border-2 border-gray-200 p-6 overflow-auto">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                        </div>
+                        <span className="text-sm font-semibold text-primary">Live Output</span>
+                      </div>
+                      <pre className="font-mono text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                        {streamingOutput || "Initializing connection..."}
+                      </pre>
+                    </div>
+                  </motion.div>
+                ) : !hasResult || !result ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -419,32 +454,19 @@ ${result.database}
                     className="h-full"
                   >
                     <Card className="border-4 border-gray-300 bg-white shadow-xl overflow-hidden flex flex-col" style={{minHeight: 'calc(100vh - 20rem)'}}>
-                      {isProcessing && !result ? (
-                        <div className="flex-1 p-6">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
-                            <h3 className="text-lg font-bold text-primary">Streaming Output...</h3>
-                          </div>
-                          <ScrollArea className="h-full">
-                            <pre className="font-mono text-sm text-foreground whitespace-pre-wrap bg-gray-50 p-4 rounded border-2 border-gray-200">
-                              {streamingOutput || "Waiting for response..."}
-                            </pre>
-                          </ScrollArea>
+                      <Tabs defaultValue="quotes-list" className="w-full h-full flex flex-col">
+                        <div className="border-b-4 border-gray-200 px-6 bg-gray-50">
+                          <TabsList className="h-12 bg-transparent p-0 gap-6">
+                            <TabTrigger value="quotes-list" icon={<Quote className="w-5 h-5" />} label="Quotes" />
+                            <TabTrigger value="quotes-context" icon={<AlignLeft className="w-5 h-5" />} label="Context" />
+                            <TabTrigger value="summary" icon={<FileText className="w-5 h-5" />} label="Rewrite" />
+                            <TabTrigger value="database" icon={<Database className="w-5 h-5" />} label="Database" />
+                          </TabsList>
                         </div>
-                      ) : (
-                        <Tabs defaultValue="quotes-list" className="w-full h-full flex flex-col">
-                          <div className="border-b-4 border-gray-200 px-6 bg-gray-50">
-                            <TabsList className="h-12 bg-transparent p-0 gap-6">
-                              <TabTrigger value="quotes-list" icon={<Quote className="w-5 h-5" />} label="Quotes" />
-                              <TabTrigger value="quotes-context" icon={<AlignLeft className="w-5 h-5" />} label="Context" />
-                              <TabTrigger value="summary" icon={<FileText className="w-5 h-5" />} label="Rewrite" />
-                              <TabTrigger value="database" icon={<Database className="w-5 h-5" />} label="Database" />
-                            </TabsList>
-                          </div>
 
-                          <div className="flex-1 bg-card">
-                            <ScrollArea className="h-full">
-                              <div className="p-6">
+                        <div className="flex-1 bg-card">
+                          <ScrollArea className="h-full">
+                            <div className="p-6">
                               <TabsContent value="quotes-list" className="mt-0 space-y-4 outline-none">
                                 <ul className="space-y-4">
                                   {result.quotes.map((quote, i) => (
@@ -495,7 +517,6 @@ ${result.database}
                           </ScrollArea>
                         </div>
                       </Tabs>
-                      )}
                     </Card>
                   </motion.div>
                 )}
