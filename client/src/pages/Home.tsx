@@ -15,7 +15,8 @@ import {
   Download,
   Copy,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  Settings
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -28,63 +29,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
-
-// Mock Data for Simulation
-const MOCK_QUOTES_SIMPLE = [
-  "The essence of knowledge lies not in its accumulation, but in its application to the novel structures of reality.",
-  "Logic, when divorced from the chaotic nature of human experience, becomes a sterile tool of abstraction.",
-  "Language frames our world, yet it is the silence between words where meaning truly resides."
-];
-
-const MOCK_QUOTES_CONTEXT = [
-  {
-    quote: "The essence of knowledge lies not in its accumulation, but in its application to the novel structures of reality.",
-    context: "Kuczynski's reflection on the limitations of traditional epistemology in the face of modern complexity."
-  },
-  {
-    quote: "Logic, when divorced from the chaotic nature of human experience, becomes a sterile tool of abstraction.",
-    context: "A critique of pure rationalism that fails to account for the phenomenological aspects of existence."
-  },
-  {
-    quote: "Language frames our world, yet it is the silence between words where meaning truly resides.",
-    context: "An exploration of the Wittgensteinian boundaries of expression and the ineffable."
-  }
-];
-
-const MOCK_SUMMARY = `The provided text delves into the philosophical intersection of logic and experience. It argues that while formal systems offer precision, they often miss the nuanced, chaotic texture of lived reality. 
-
-The author suggests that a more robust framework must integrate the rigor of extensional logic with the fluidity of phenomenological insight. This synthesis is presented not as a rejection of structure, but as an evolution of it, necessary for comprehending the complexities of the modern human condition.`;
-
-const MOCK_DATABASE = `ID: DOC-2024-001
-TIMESTAMP: 2024-11-23T10:45:00Z
-TYPE: Philosophical Essay
-LENGTH: 854 words
-ENTITIES:
-- Kuczynski (Author)
-- Extensional Logic (Concept)
-- Phenomenology (Concept)
-- Epistemology (Field)
-KEYWORDS: logic, structure, chaos, meaning, silence, application
-SENTENCE_MAP:
-[001] "The essence of knowledge..." (p.1, l.1)
-[002] "Logic, when divorced..." (p.1, l.4)
-[003] "Language frames..." (p.2, l.2)
-METADATA_HASH: 7a9s8d7f9a8s7d9f8a7s`;
+import { useApiKeys } from "@/lib/store";
+import { analyzeText, AnalysisResult } from "@/lib/llm";
 
 type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek";
 
 export default function Home() {
   const [text, setText] = useState("");
-  const [selectedLLM, setSelectedLLM] = useState<LLM>("grok");
+  const [selectedLLM, setSelectedLLM] = useState<LLM>("openai");
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasResult, setHasResult] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  const { keys, setKey } = useApiKeys();
   const { toast } = useToast();
 
-  const handleProcess = () => {
+  const handleProcess = async () => {
     if (!text.trim()) {
       toast({
         title: "Input required",
@@ -94,17 +70,38 @@ export default function Home() {
       return;
     }
 
+    // Check for API Key
+    if (!keys[selectedLLM]) {
+      setIsSettingsOpen(true);
+      toast({
+        title: "API Key Required",
+        description: `Please enter your API Key for ${selectedLLM} to continue.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsProcessing(true);
+    setHasResult(false);
     
-    // Simulate API delay
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      const analysis = await analyzeText(text, selectedLLM);
+      setResult(analysis);
       setHasResult(true);
       toast({
         title: "Analysis Complete",
-        description: `Processed using ${selectedLLM.charAt(0).toUpperCase() + selectedLLM.slice(1)}`,
+        description: `Successfully analyzed using ${selectedLLM}.`,
       });
-    }, 2500);
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        title: "Analysis Failed",
+        description: error.message || "Unknown error occurred during API call",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleClearInput = () => {
@@ -114,26 +111,28 @@ export default function Home() {
 
   const handleClearOutput = () => {
     setHasResult(false);
+    setResult(null);
     toast({ description: "Results cleared" });
   };
 
   const generateReportContent = () => {
+    if (!result) return "";
     return `TEXT INTELLIGENCE REPORT
 Generated: ${new Date().toLocaleString()}
 Source Length: ${text.split(/\s+/).filter(Boolean).length} words
 LLM Used: ${selectedLLM}
 
 --- KEY QUOTATIONS ---
-${MOCK_QUOTES_SIMPLE.map((q, i) => `${i+1}. ${q}`).join('\n')}
+${result.quotes.map((q, i) => `${i+1}. ${q}`).join('\n')}
 
 --- ANNOTATED CITATIONS ---
-${MOCK_QUOTES_CONTEXT.map((q, i) => `"${q.quote}"\n   > Context: ${q.context}`).join('\n\n')}
+${result.annotatedQuotes.map((q, i) => `"${q.quote}"\n   > Context: ${q.context}`).join('\n\n')}
 
 --- COMPRESSED REWRITE ---
-${MOCK_SUMMARY}
+${result.summary}
 
 --- DATABASE ---
-${MOCK_DATABASE}
+${result.database}
 `;
   };
 
@@ -231,6 +230,51 @@ ${MOCK_DATABASE}
           </div>
           
           <div className="flex items-center gap-4">
+            
+            <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                  <Settings className="w-5 h-5" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>API Configuration</DialogTitle>
+                  <DialogDescription>
+                    Enter your API keys to enable analysis. Keys are stored locally in your browser.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="openai">OpenAI API Key</Label>
+                    <Input 
+                      id="openai" 
+                      type="password" 
+                      placeholder="sk-..." 
+                      value={keys.openai}
+                      onChange={(e) => setKey("openai", e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="grok">Grok API Key</Label>
+                    <Input 
+                      id="grok" 
+                      type="password" 
+                      placeholder="xai-..." 
+                      value={keys.grok}
+                      onChange={(e) => setKey("grok", e.target.value)}
+                    />
+                  </div>
+                  {/* Add others as needed */}
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => setIsSettingsOpen(false)}>Save & Close</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <div className="w-px h-4 bg-border" />
+
             <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 px-3 py-1.5 rounded-full">
               <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">Powered by</span>
@@ -241,9 +285,9 @@ ${MOCK_DATABASE}
                 <SelectContent>
                   <SelectItem value="grok">Grok</SelectItem>
                   <SelectItem value="openai">OpenAI o1</SelectItem>
-                  <SelectItem value="anthropic">Claude 3.5</SelectItem>
-                  <SelectItem value="perplexity">Perplexity</SelectItem>
-                  <SelectItem value="deepseek">DeepSeek</SelectItem>
+                  {/* Other items disabled until implemented */}
+                  <SelectItem value="anthropic" disabled>Claude 3.5 (Coming Soon)</SelectItem>
+                  <SelectItem value="perplexity" disabled>Perplexity (Coming Soon)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -387,7 +431,7 @@ ${MOCK_DATABASE}
 
             <div className="flex-1 relative">
               <AnimatePresence mode="wait">
-                {!hasResult ? (
+                {!hasResult || !result ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -428,7 +472,7 @@ ${MOCK_DATABASE}
                                   subtitle="Direct citations extracted from the source text."
                                 />
                                 <ul className="space-y-4">
-                                  {MOCK_QUOTES_SIMPLE.map((quote, i) => (
+                                  {result.quotes.map((quote, i) => (
                                     <li key={i} className="flex gap-4 group">
                                       <span className="flex-none w-6 h-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center text-xs font-mono mt-1">
                                         {i + 1}
@@ -447,7 +491,7 @@ ${MOCK_DATABASE}
                                   subtitle="Quotations with contextual analysis and commentary."
                                 />
                                 <div className="space-y-8">
-                                  {MOCK_QUOTES_CONTEXT.map((item, i) => (
+                                  {result.annotatedQuotes.map((item, i) => (
                                     <div key={i} className="group">
                                       <blockquote className="font-serif text-xl text-foreground border-l-4 border-primary/20 pl-6 py-2 mb-3">
                                         "{item.quote}"
@@ -468,7 +512,7 @@ ${MOCK_DATABASE}
                                 />
                                 <div className="prose prose-stone max-w-none">
                                   <p className="text-lg leading-loose font-serif">
-                                    {MOCK_SUMMARY}
+                                    {result.summary}
                                   </p>
                                 </div>
                               </TabsContent>
@@ -480,7 +524,7 @@ ${MOCK_DATABASE}
                                 />
                                 <div className="bg-muted/50 rounded-lg p-4 border overflow-x-auto">
                                   <pre className="font-mono text-sm text-muted-foreground">
-                                    {MOCK_DATABASE}
+                                    {result.database}
                                   </pre>
                                 </div>
                               </TabsContent>
