@@ -31,7 +31,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
-import { analyzeText, AnalysisResult } from "@/lib/llm";
+import { analyzeText, analyzeTextStreaming, AnalysisResult } from "@/lib/llm";
 
 type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek";
 
@@ -42,6 +42,7 @@ export default function Home() {
   const [hasResult, setHasResult] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [streamingOutput, setStreamingOutput] = useState("");
   
   const { toast } = useToast();
 
@@ -56,16 +57,33 @@ export default function Home() {
     }
 
     setIsProcessing(true);
-    setHasResult(false);
+    setHasResult(true); // Show streaming immediately
+    setStreamingOutput("");
+    let accumulatedOutput = "";
     
     try {
-      const analysis = await analyzeText(text, selectedLLM, functionType);
-      setResult(analysis);
-      setHasResult(true);
-      toast({
-        title: "Analysis Complete",
-        description: `Generated ${functionType} using ${selectedLLM.toUpperCase()}.`,
-      });
+      await analyzeTextStreaming(
+        text, 
+        selectedLLM, 
+        functionType,
+        (chunk: string) => {
+          accumulatedOutput += chunk;
+          setStreamingOutput(accumulatedOutput);
+        },
+        () => {
+          // Parse final JSON when streaming completes
+          try {
+            const parsed = JSON.parse(accumulatedOutput);
+            setResult(parsed);
+            toast({
+              title: "Analysis Complete",
+              description: `Generated ${functionType} using ${selectedLLM.toUpperCase()}.`,
+            });
+          } catch (e) {
+            console.error("Failed to parse streaming output:", e);
+          }
+        }
+      );
     } catch (error: any) {
       console.error(error);
       toast({
@@ -73,6 +91,7 @@ export default function Home() {
         description: error.message || "Unknown error occurred",
         variant: "destructive",
       });
+      setHasResult(false);
     } finally {
       setIsProcessing(false);
     }
@@ -400,19 +419,32 @@ ${result.database}
                     className="h-full"
                   >
                     <Card className="border-4 border-gray-300 bg-white shadow-xl overflow-hidden flex flex-col" style={{minHeight: 'calc(100vh - 20rem)'}}>
-                      <Tabs defaultValue="quotes-list" className="w-full h-full flex flex-col">
-                        <div className="border-b-4 border-gray-200 px-6 bg-gray-50">
-                          <TabsList className="h-12 bg-transparent p-0 gap-6">
-                            <TabTrigger value="quotes-list" icon={<Quote className="w-5 h-5" />} label="Quotes" />
-                            <TabTrigger value="quotes-context" icon={<AlignLeft className="w-5 h-5" />} label="Context" />
-                            <TabTrigger value="summary" icon={<FileText className="w-5 h-5" />} label="Rewrite" />
-                            <TabTrigger value="database" icon={<Database className="w-5 h-5" />} label="Database" />
-                          </TabsList>
-                        </div>
-
-                        <div className="flex-1 bg-card">
+                      {isProcessing && !result ? (
+                        <div className="flex-1 p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                            <h3 className="text-lg font-bold text-primary">Streaming Output...</h3>
+                          </div>
                           <ScrollArea className="h-full">
-                            <div className="p-6">
+                            <pre className="font-mono text-sm text-foreground whitespace-pre-wrap bg-gray-50 p-4 rounded border-2 border-gray-200">
+                              {streamingOutput || "Waiting for response..."}
+                            </pre>
+                          </ScrollArea>
+                        </div>
+                      ) : (
+                        <Tabs defaultValue="quotes-list" className="w-full h-full flex flex-col">
+                          <div className="border-b-4 border-gray-200 px-6 bg-gray-50">
+                            <TabsList className="h-12 bg-transparent p-0 gap-6">
+                              <TabTrigger value="quotes-list" icon={<Quote className="w-5 h-5" />} label="Quotes" />
+                              <TabTrigger value="quotes-context" icon={<AlignLeft className="w-5 h-5" />} label="Context" />
+                              <TabTrigger value="summary" icon={<FileText className="w-5 h-5" />} label="Rewrite" />
+                              <TabTrigger value="database" icon={<Database className="w-5 h-5" />} label="Database" />
+                            </TabsList>
+                          </div>
+
+                          <div className="flex-1 bg-card">
+                            <ScrollArea className="h-full">
+                              <div className="p-6">
                               <TabsContent value="quotes-list" className="mt-0 space-y-4 outline-none">
                                 <ul className="space-y-4">
                                   {result.quotes.map((quote, i) => (
@@ -463,6 +495,7 @@ ${result.database}
                           </ScrollArea>
                         </div>
                       </Tabs>
+                      )}
                     </Card>
                   </motion.div>
                 )}

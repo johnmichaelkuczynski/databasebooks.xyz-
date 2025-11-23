@@ -61,6 +61,64 @@ async function callOpenAI(text: string, apiKey: string, functionType: string): P
   return JSON.parse(data.choices[0].message.content);
 }
 
+async function callOpenAIStreaming(text: string, apiKey: string, functionType: string, onChunk: (chunk: string) => void): Promise<void> {
+  const minQuotes = calculateMinQuotes(text);
+  const prompt = getSystemPrompt(functionType, minQuotes);
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user", content: text }
+      ],
+      stream: true
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error?.message || "OpenAI API Error");
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices[0]?.delta?.content;
+          if (content) {
+            onChunk(content);
+          }
+        } catch (e) {
+          // Skip parse errors
+        }
+      }
+    }
+  }
+}
+
 async function callAnthropic(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
   const minQuotes = calculateMinQuotes(text);
   const prompt = getSystemPrompt(functionType, minQuotes);
@@ -251,6 +309,40 @@ export async function analyzeText(text: string, provider: string, functionType: 
     case "deepseek":
       if (!apiKeys.deepseek) throw new Error("DEEPSEEK_API_KEY not configured in Replit Secrets");
       return callDeepSeek(text, apiKeys.deepseek, functionType);
+    
+    default:
+      throw new Error(`Unknown provider: ${provider}`);
+  }
+}
+
+export async function analyzeTextStreaming(text: string, provider: string, functionType: string, onChunk: (chunk: string) => void): Promise<void> {
+  // Get API keys from environment variables (Replit Secrets)
+  const apiKeys = {
+    openai: process.env.OPENAI_API_KEY || "",
+    anthropic: process.env.ANTHROPIC_API_KEY || "",
+    grok: process.env.GROK_API_KEY || "",
+    perplexity: process.env.PERPLEXITY_API_KEY || "",
+    deepseek: process.env.DEEPSEEK_API_KEY || "",
+  };
+
+  switch (provider) {
+    case "openai":
+      if (!apiKeys.openai) throw new Error("OPENAI_API_KEY not configured in Replit Secrets");
+      return callOpenAIStreaming(text, apiKeys.openai, functionType, onChunk);
+    
+    case "anthropic":
+    case "grok":
+    case "perplexity":
+    case "deepseek":
+      // Fallback to non-streaming for providers without streaming support yet
+      const result = await analyzeText(text, provider, functionType);
+      const fullText = JSON.stringify(result, null, 2);
+      // Simulate streaming by chunking the response
+      for (let i = 0; i < fullText.length; i += 50) {
+        onChunk(fullText.slice(i, i + 50));
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      break;
     
     default:
       throw new Error(`Unknown provider: ${provider}`);
