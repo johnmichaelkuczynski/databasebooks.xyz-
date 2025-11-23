@@ -13,7 +13,9 @@ import {
   Bot,
   Check,
   Download,
-  Copy
+  Copy,
+  Trash2,
+  RotateCcw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -103,6 +105,63 @@ export default function Home() {
         description: `Processed using ${selectedLLM.charAt(0).toUpperCase() + selectedLLM.slice(1)}`,
       });
     }, 2500);
+  };
+
+  const handleClearInput = () => {
+    setText("");
+    toast({ description: "Input cleared" });
+  };
+
+  const handleClearOutput = () => {
+    setHasResult(false);
+    toast({ description: "Results cleared" });
+  };
+
+  const generateReportContent = () => {
+    return `TEXT INTELLIGENCE REPORT
+Generated: ${new Date().toLocaleString()}
+Source Length: ${text.split(/\s+/).filter(Boolean).length} words
+LLM Used: ${selectedLLM}
+
+--- KEY QUOTATIONS ---
+${MOCK_QUOTES_SIMPLE.map((q, i) => `${i+1}. ${q}`).join('\n')}
+
+--- ANNOTATED CITATIONS ---
+${MOCK_QUOTES_CONTEXT.map((q, i) => `"${q.quote}"\n   > Context: ${q.context}`).join('\n\n')}
+
+--- COMPRESSED REWRITE ---
+${MOCK_SUMMARY}
+
+--- DATABASE ---
+${MOCK_DATABASE}
+`;
+  };
+
+  const handleDownload = () => {
+    const content = generateReportContent();
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `analysis-report-${new Date().toISOString().slice(0,10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ 
+      title: "Download Started", 
+      description: "Your analysis report has been saved." 
+    });
+  };
+
+  const handleCopy = () => {
+    const content = generateReportContent();
+    navigator.clipboard.writeText(content).then(() => {
+      toast({ 
+        title: "Copied to Clipboard", 
+        description: "Full report copied successfully." 
+      });
+    });
   };
 
   const handleFileUpload = (file: File) => {
@@ -200,6 +259,19 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-serif font-medium text-foreground">Source Document</h2>
               <div className="flex gap-2">
+                {text && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs gap-2 text-muted-foreground hover:text-destructive"
+                    onClick={handleClearInput}
+                    title="Clear Input"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Clear</span>
+                  </Button>
+                )}
+                <div className="w-px h-4 bg-border my-auto mx-1" />
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -293,10 +365,20 @@ export default function Home() {
               <h2 className="text-xl font-serif font-medium text-foreground">Analysis Results</h2>
               {hasResult && (
                 <div className="flex gap-2">
-                   <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy All">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive" 
+                    title="Clear Results"
+                    onClick={handleClearOutput}
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </Button>
+                  <div className="w-px h-4 bg-border my-auto mx-1" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy All" onClick={handleCopy}>
                     <Copy className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Download Report">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Download Report" onClick={handleDownload}>
                     <Download className="w-4 h-4" />
                   </Button>
                 </div>
