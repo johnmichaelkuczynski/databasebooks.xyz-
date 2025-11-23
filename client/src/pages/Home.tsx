@@ -74,6 +74,9 @@ export default function Home() {
           // Parse final JSON when streaming completes
           try {
             const parsed = JSON.parse(accumulatedOutput);
+            console.log("Parsed result:", parsed);
+            console.log("Analyzer field length:", parsed.analyzer?.length || 0);
+            console.log("Analyzer field preview:", parsed.analyzer?.substring(0, 100) || "(empty)");
             setResult(parsed);
             toast({
               title: "Analysis Complete",
@@ -81,6 +84,8 @@ export default function Home() {
             });
           } catch (e) {
             console.error("Failed to parse streaming output:", e);
+            console.error("Accumulated output length:", accumulatedOutput.length);
+            console.error("First 500 chars:", accumulatedOutput.substring(0, 500));
           }
         }
       );
@@ -529,9 +534,20 @@ ${result.analyzer}
 
                               <TabsContent value="analyzer" className="mt-0 outline-none h-full">
                                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 border-2 border-purple-200 shadow-lg">
-                                  <pre className="font-sans text-base text-foreground whitespace-pre-wrap leading-relaxed">
-                                    {result.analyzer}
-                                  </pre>
+                                  {result.analyzer ? (
+                                    <pre className="font-sans text-base text-foreground whitespace-pre-wrap leading-relaxed">
+                                      {result.analyzer}
+                                    </pre>
+                                  ) : (
+                                    <div className="text-center py-12">
+                                      <p className="text-lg text-muted-foreground">
+                                        No analysis data available. The analyzer field appears to be empty.
+                                      </p>
+                                      <p className="text-sm text-muted-foreground mt-2">
+                                        Debug: Result keys: {Object.keys(result).join(', ')}
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
                               </TabsContent>
                             </div>
