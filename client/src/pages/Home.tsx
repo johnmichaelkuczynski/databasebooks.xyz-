@@ -107,14 +107,36 @@ export default function Home() {
 
   const handleFileUpload = (file: File) => {
     if (file) {
-      // Simulate reading file
-      setText(`[Loaded content from ${file.name}]\n\n` + 
-        "This is a simulated content extraction from the uploaded file. In a real production environment, this would contain the full parsed text of the document you uploaded.\n\n" + 
-        "For now, you can edit this text or add more content to test the analysis features.");
-      toast({
-        title: "File Uploaded",
-        description: `${file.name} has been loaded successfully.`,
-      });
+      // Check if it's a text file or similar
+      if (file.type === "text/plain" || file.name.endsWith(".txt") || file.name.endsWith(".md")) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          setText(content);
+          toast({
+            title: "File Uploaded",
+            description: `${file.name} loaded successfully (${content.split(/\s+/).length} words).`,
+          });
+        };
+        reader.onerror = () => {
+          toast({
+            title: "Error reading file",
+            description: "Could not read the text content.",
+            variant: "destructive",
+          });
+        };
+        reader.readAsText(file);
+      } else {
+        // Fallback for binary files we can't parse client-side yet
+        setText(`[Loaded content from ${file.name}]\n\n` + 
+          "Note: This prototype currently supports full text extraction for .txt and .md files. For PDF and Word documents, this is a placeholder simulation.\n\n" + 
+          "Please upload a plain text file to see the full analysis capabilities, or paste your text directly here.");
+        toast({
+          title: "File Format Warning",
+          description: "Full extraction is currently limited to plain text files (.txt, .md).",
+          variant: "destructive",
+        });
+      }
     }
   };
 
