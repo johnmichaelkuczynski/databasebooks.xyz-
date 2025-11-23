@@ -5,13 +5,17 @@ export type AnalysisResult = {
   database: string;
 };
 
-export async function analyzeText(text: string, provider: string): Promise<AnalysisResult> {
+export async function analyzeText(
+  text: string, 
+  provider: string,
+  functionType: 'quotes' | 'context' | 'rewrite' | 'database'
+): Promise<AnalysisResult> {
   const response = await fetch("/api/analyze", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ text, provider }),
+    body: JSON.stringify({ text, provider, functionType }),
   });
 
   if (!response.ok) {

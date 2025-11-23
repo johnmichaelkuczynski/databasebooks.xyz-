@@ -5,20 +5,23 @@ export type AnalysisResult = {
   database: string;
 };
 
-const SYSTEM_PROMPT = `You are an advanced Text Intelligence Engine. Your goal is to analyze the provided text and generate structured outputs strictly following these rules:
-
-1. **QUOTES**: Extract the best quotations. Minimum of 3 quotes for every 600 words. Output as a simple list.
-2. **ANNOTATED QUOTES**: Extract the same or different quotes with 1 sentence of context/commentary explaining their significance (e.g., "Kuczynski's critique of extensional logic...").
-3. **REWRITE**: Compress each paragraph into no more than two sentences. Do NOT skip any paragraphs from the original text.
-4. **DATABASE**: Generate a fine-grained text-file database representation of the document including: metadata (title, author, timestamp, word count), entities mentioned, key concepts/themes, structural map, and a detailed sentence index.
-
-Output must be valid JSON with this exact schema:
-{
-  "quotes": ["quote 1", "quote 2", ...],
-  "annotatedQuotes": [{"quote": "...", "context": "..."},  ...],
-  "summary": "Full compressed text with each paragraph reduced to max 2 sentences...",
-  "database": "Raw text format of database with metadata, entities, concepts, and sentence map..."
-}`;
+function getSystemPrompt(functionType: string, minQuotes: number): string {
+  const prompts = {
+    quotes: `Extract the best quotations from the text. Minimum of ${minQuotes} quotes.
+Output valid JSON: {"quotes": ["quote 1", "quote 2", ...], "annotatedQuotes": [], "summary": "", "database": ""}`,
+    
+    context: `Extract the best quotations with one-line contextual commentary. Minimum of ${minQuotes} quotes.
+Output valid JSON: {"quotes": [], "annotatedQuotes": [{"quote": "...", "context": "..."}, ...], "summary": "", "database": ""}`,
+    
+    rewrite: `Compress each paragraph into maximum 2 sentences. Do NOT skip any paragraphs.
+Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "Full compressed text...", "database": ""}`,
+    
+    database: `Generate a fine-grained text-file database of the document including: metadata, entities, key concepts, structural map, and sentence index.
+Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "Database text format..."}`
+  };
+  
+  return prompts[functionType as keyof typeof prompts] || prompts.quotes;
+}
 
 function countWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
@@ -29,9 +32,9 @@ function calculateMinQuotes(text: string): number {
   return Math.max(3, Math.ceil((wordCount / 600) * 3));
 }
 
-async function callOpenAI(text: string, apiKey: string): Promise<AnalysisResult> {
+async function callOpenAI(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
   const minQuotes = calculateMinQuotes(text);
-  const prompt = SYSTEM_PROMPT.replace("Minimum of 3 quotes", `Minimum of ${minQuotes} quotes`);
+  const prompt = getSystemPrompt(functionType, minQuotes);
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -58,9 +61,9 @@ async function callOpenAI(text: string, apiKey: string): Promise<AnalysisResult>
   return JSON.parse(data.choices[0].message.content);
 }
 
-async function callAnthropic(text: string, apiKey: string): Promise<AnalysisResult> {
+async function callAnthropic(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
   const minQuotes = calculateMinQuotes(text);
-  const prompt = SYSTEM_PROMPT.replace("Minimum of 3 quotes", `Minimum of ${minQuotes} quotes`);
+  const prompt = getSystemPrompt(functionType, minQuotes);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -99,9 +102,9 @@ async function callAnthropic(text: string, apiKey: string): Promise<AnalysisResu
   }
 }
 
-async function callGrok(text: string, apiKey: string): Promise<AnalysisResult> {
+async function callGrok(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
   const minQuotes = calculateMinQuotes(text);
-  const prompt = SYSTEM_PROMPT.replace("Minimum of 3 quotes", `Minimum of ${minQuotes} quotes`);
+  const prompt = getSystemPrompt(functionType, minQuotes);
 
   const response = await fetch("https://api.x.ai/v1/chat/completions", {
     method: "POST",
@@ -139,9 +142,9 @@ async function callGrok(text: string, apiKey: string): Promise<AnalysisResult> {
   }
 }
 
-async function callPerplexity(text: string, apiKey: string): Promise<AnalysisResult> {
+async function callPerplexity(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
   const minQuotes = calculateMinQuotes(text);
-  const prompt = SYSTEM_PROMPT.replace("Minimum of 3 quotes", `Minimum of ${minQuotes} quotes`);
+  const prompt = getSystemPrompt(functionType, minQuotes);
 
   const response = await fetch("https://api.perplexity.ai/chat/completions", {
     method: "POST",
@@ -178,9 +181,9 @@ async function callPerplexity(text: string, apiKey: string): Promise<AnalysisRes
   }
 }
 
-async function callDeepSeek(text: string, apiKey: string): Promise<AnalysisResult> {
+async function callDeepSeek(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
   const minQuotes = calculateMinQuotes(text);
-  const prompt = SYSTEM_PROMPT.replace("Minimum of 3 quotes", `Minimum of ${minQuotes} quotes`);
+  const prompt = getSystemPrompt(functionType, minQuotes);
 
   const response = await fetch("https://api.deepseek.com/chat/completions", {
     method: "POST",
@@ -218,7 +221,7 @@ async function callDeepSeek(text: string, apiKey: string): Promise<AnalysisResul
   }
 }
 
-export async function analyzeText(text: string, provider: string): Promise<AnalysisResult> {
+export async function analyzeText(text: string, provider: string, functionType: string): Promise<AnalysisResult> {
   // Get API keys from environment variables (Replit Secrets)
   const apiKeys = {
     openai: process.env.OPENAI_API_KEY || "",
@@ -231,23 +234,23 @@ export async function analyzeText(text: string, provider: string): Promise<Analy
   switch (provider) {
     case "openai":
       if (!apiKeys.openai) throw new Error("OPENAI_API_KEY not configured in Replit Secrets");
-      return callOpenAI(text, apiKeys.openai);
+      return callOpenAI(text, apiKeys.openai, functionType);
     
     case "anthropic":
       if (!apiKeys.anthropic) throw new Error("ANTHROPIC_API_KEY not configured in Replit Secrets");
-      return callAnthropic(text, apiKeys.anthropic);
+      return callAnthropic(text, apiKeys.anthropic, functionType);
     
     case "grok":
       if (!apiKeys.grok) throw new Error("GROK_API_KEY not configured in Replit Secrets");
-      return callGrok(text, apiKeys.grok);
+      return callGrok(text, apiKeys.grok, functionType);
     
     case "perplexity":
       if (!apiKeys.perplexity) throw new Error("PERPLEXITY_API_KEY not configured in Replit Secrets");
-      return callPerplexity(text, apiKeys.perplexity);
+      return callPerplexity(text, apiKeys.perplexity, functionType);
     
     case "deepseek":
       if (!apiKeys.deepseek) throw new Error("DEEPSEEK_API_KEY not configured in Replit Secrets");
-      return callDeepSeek(text, apiKeys.deepseek);
+      return callDeepSeek(text, apiKeys.deepseek, functionType);
     
     default:
       throw new Error(`Unknown provider: ${provider}`);

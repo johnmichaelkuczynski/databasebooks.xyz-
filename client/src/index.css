@@ -53,44 +53,44 @@
   --radius: 0.5rem;
 }
 
-/* LIGHT MODE - Vibrant Professional */
+/* ULTRA HIGH CONTRAST NEON NOIR */
 :root {
-  --background: 210 40% 98%; /* Bright white with hint of blue */
-  --foreground: 222 47% 11%; /* Deep navy text */
+  --background: 0 0% 2%; /* Pure black */
+  --foreground: 0 0% 98%; /* Pure white */
   
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 98%;
   
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover: 0 0% 5%;
+  --popover-foreground: 0 0% 98%;
   
-  --primary: 217 91% 60%; /* Electric blue */
-  --primary-foreground: 0 0% 100%;
+  --primary: 311 100% 55%; /* Neon magenta */
+  --primary-foreground: 0 0% 0%;
   
-  --secondary: 214 32% 91%; /* Light blue background */
-  --secondary-foreground: 222 47% 11%;
+  --secondary: 189 100% 40%; /* Cyan glow */
+  --secondary-foreground: 0 0% 0%;
   
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 0 0% 10%;
+  --muted-foreground: 0 0% 60%;
   
-  --accent: 38 92% 50%; /* Vibrant gold accent */
-  --accent-foreground: 0 0% 100%;
+  --accent: 120 100% 52%; /* Electric lime */
+  --accent-foreground: 0 0% 0%;
   
-  --destructive: 0 84% 60%;
+  --destructive: 0 100% 50%;
   --destructive-foreground: 0 0% 98%;
 
-  --border: 214 32% 80%; /* Stronger visible border */
-  --input: 214 32% 85%;
-  --ring: 217 91% 60%;
+  --border: 0 0% 18%; /* Visible border */
+  --input: 0 0% 12%;
+  --ring: 311 100% 55%;
   
-  --sidebar: 210 40% 98%;
-  --sidebar-foreground: 222 47% 11%;
-  --sidebar-primary: 217 91% 60%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 214 32% 91%;
-  --sidebar-accent-foreground: 222 47% 11%;
-  --sidebar-border: 214 32% 80%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar: 0 0% 2%;
+  --sidebar-foreground: 0 0% 98%;
+  --sidebar-primary: 311 100% 55%;
+  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-accent: 0 0% 10%;
+  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-border: 0 0% 18%;
+  --sidebar-ring: 311 100% 55%;
 }
 
 .dark {

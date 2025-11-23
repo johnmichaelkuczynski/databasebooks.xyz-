@@ -7,7 +7,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/analyze", async (req, res) => {
     try {
-      const { text, provider } = req.body;
+      const { text, provider, functionType } = req.body;
 
       if (!text || typeof text !== "string") {
         return res.status(400).json({ 
@@ -21,7 +21,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const result = await analyzeText(text, provider);
+      if (!functionType || typeof functionType !== "string") {
+        return res.status(400).json({ 
+          error: "Missing or invalid 'functionType' field in request body" 
+        });
+      }
+
+      const result = await analyzeText(text, provider, functionType);
       
       res.json(result);
     } catch (error: any) {
