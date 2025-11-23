@@ -27,6 +27,52 @@ Output must be valid JSON with this schema:
 
 export async function analyzeText(text: string, provider: string): Promise<AnalysisResult> {
   const keys = useApiKeys.getState().keys;
+
+  // SIMULATION / DEMO MODE
+  if (provider === "simulation") {
+    // Return immediate mock data so the UI functions can be tested
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          quotes: [
+            "The essence of knowledge lies not in its accumulation, but in its application to the novel structures of reality.",
+            "Logic, when divorced from the chaotic nature of human experience, becomes a sterile tool of abstraction.",
+            "Language frames our world, yet it is the silence between words where meaning truly resides."
+          ],
+          annotatedQuotes: [
+            {
+              quote: "The essence of knowledge lies not in its accumulation, but in its application to the novel structures of reality.",
+              context: "Kuczynski's reflection on the limitations of traditional epistemology in the face of modern complexity."
+            },
+            {
+              quote: "Logic, when divorced from the chaotic nature of human experience, becomes a sterile tool of abstraction.",
+              context: "A critique of pure rationalism that fails to account for the phenomenological aspects of existence."
+            },
+            {
+              quote: "Language frames our world, yet it is the silence between words where meaning truly resides.",
+              context: "An exploration of the Wittgensteinian boundaries of expression and the ineffable."
+            }
+          ],
+          summary: "The provided text delves into the philosophical intersection of logic and experience. It argues that while formal systems offer precision, they often miss the nuanced, chaotic texture of lived reality. The author suggests that a more robust framework must integrate the rigor of extensional logic with the fluidity of phenomenological insight. This synthesis is presented not as a rejection of structure, but as an evolution of it, necessary for comprehending the complexities of the modern human condition.",
+          database: `ID: DOC-SIMULATION-001
+TIMESTAMP: ${new Date().toISOString()}
+TYPE: Philosophical Essay (Simulated)
+LENGTH: ${text.split(/\s+/).length} words (estimated)
+ENTITIES:
+- Kuczynski (Author)
+- Extensional Logic (Concept)
+- Phenomenology (Concept)
+- Epistemology (Field)
+KEYWORDS: logic, structure, chaos, meaning, silence, application
+SENTENCE_MAP:
+[001] "The essence of knowledge..." (p.1, l.1)
+[002] "Logic, when divorced..." (p.1, l.4)
+[003] "Language frames..." (p.2, l.2)
+METADATA_HASH: 7a9s8d7f9a8s7d9f8a7s`
+        });
+      }, 1500); // Small delay to feel "real"
+    });
+  }
   
   if (provider === "openai") {
     if (!keys.openai) throw new Error("OpenAI API Key missing");

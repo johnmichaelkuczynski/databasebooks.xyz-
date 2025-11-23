@@ -17,11 +17,11 @@ export const useApiKeys = create<ApiKeyStore>()(
   persist(
     (set) => ({
       keys: {
-        openai: "",
-        anthropic: "",
-        grok: "",
-        perplexity: "",
-        deepseek: "",
+        openai: import.meta.env.VITE_OPENAI_API_KEY || "",
+        anthropic: import.meta.env.VITE_ANTHROPIC_API_KEY || "",
+        grok: import.meta.env.VITE_GROK_API_KEY || "",
+        perplexity: import.meta.env.VITE_PERPLEXITY_API_KEY || "",
+        deepseek: import.meta.env.VITE_DEEPSEK_API_KEY || "",
       },
       setKey: (provider, key) =>
         set((state) => ({

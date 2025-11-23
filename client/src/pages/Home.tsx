@@ -46,11 +46,11 @@ import { Card } from "@/components/ui/card";
 import { useApiKeys } from "@/lib/store";
 import { analyzeText, AnalysisResult } from "@/lib/llm";
 
-type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek";
+type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek" | "simulation";
 
 export default function Home() {
   const [text, setText] = useState("");
-  const [selectedLLM, setSelectedLLM] = useState<LLM>("openai");
+  const [selectedLLM, setSelectedLLM] = useState<LLM>("grok");
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasResult, setHasResult] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -70,27 +70,29 @@ export default function Home() {
       return;
     }
 
-    // Check for API Key
-    if (!keys[selectedLLM]) {
-      setIsSettingsOpen(true);
-      toast({
-        title: "API Key Required",
-        description: `Please enter your API Key for ${selectedLLM} to continue.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsProcessing(true);
     setHasResult(false);
+
+    // AUTO-FALLBACK LOGIC:
+    // If user selected a real LLM but has no key, warn them but run simulation anyway
+    // so they can see the features work.
+    let activeProvider = selectedLLM;
+    if (selectedLLM !== "simulation" && !keys[selectedLLM as keyof typeof keys]) {
+       toast({
+         title: "Missing API Key - Running Simulation",
+         description: `No API key found for ${selectedLLM}. Showing demo results instead. Configure keys in Settings to use real AI.`,
+         variant: "default", // Not destructive, just informative
+       });
+       activeProvider = "simulation";
+    }
     
     try {
-      const analysis = await analyzeText(text, selectedLLM);
+      const analysis = await analyzeText(text, activeProvider);
       setResult(analysis);
       setHasResult(true);
       toast({
         title: "Analysis Complete",
-        description: `Successfully analyzed using ${selectedLLM}.`,
+        description: `Generated results using ${activeProvider === "simulation" ? "Simulation Engine" : activeProvider}.`,
       });
     } catch (error: any) {
       console.error(error);
@@ -283,6 +285,7 @@ ${result.database}
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="simulation">Simulation (Free)</SelectItem>
                   <SelectItem value="grok">Grok</SelectItem>
                   <SelectItem value="openai">OpenAI o1</SelectItem>
                   {/* Other items disabled until implemented */}
