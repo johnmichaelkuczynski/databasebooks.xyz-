@@ -15,8 +15,7 @@ import {
   Download,
   Copy,
   Trash2,
-  RotateCcw,
-  Settings
+  RotateCcw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -29,24 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
-import { useApiKeys } from "@/lib/store";
 import { analyzeText, AnalysisResult } from "@/lib/llm";
 
-type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek" | "simulation";
+type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek";
 
 export default function Home() {
   const [text, setText] = useState("");
@@ -55,9 +42,7 @@ export default function Home() {
   const [hasResult, setHasResult] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  const { keys, setKey } = useApiKeys();
   const { toast } = useToast();
 
   const handleProcess = async () => {
@@ -72,33 +57,20 @@ export default function Home() {
 
     setIsProcessing(true);
     setHasResult(false);
-
-    // AUTO-FALLBACK LOGIC:
-    // If user selected a real LLM but has no key, warn them but run simulation anyway
-    // so they can see the features work.
-    let activeProvider = selectedLLM;
-    if (selectedLLM !== "simulation" && !keys[selectedLLM as keyof typeof keys]) {
-       toast({
-         title: "Missing API Key - Running Simulation",
-         description: `No API key found for ${selectedLLM}. Showing demo results instead. Configure keys in Settings to use real AI.`,
-         variant: "default", // Not destructive, just informative
-       });
-       activeProvider = "simulation";
-    }
     
     try {
-      const analysis = await analyzeText(text, activeProvider);
+      const analysis = await analyzeText(text, selectedLLM);
       setResult(analysis);
       setHasResult(true);
       toast({
         title: "Analysis Complete",
-        description: `Generated results using ${activeProvider === "simulation" ? "Simulation Engine" : activeProvider}.`,
+        description: `Generated results using ${selectedLLM.toUpperCase()}.`,
       });
     } catch (error: any) {
       console.error(error);
       toast({
         title: "Analysis Failed",
-        description: error.message || "Unknown error occurred during API call",
+        description: error.message || "Unknown error occurred",
         variant: "destructive",
       });
     } finally {
@@ -232,65 +204,19 @@ ${result.database}
           </div>
           
           <div className="flex items-center gap-4">
-            
-            <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                  <Settings className="w-5 h-5" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>API Configuration</DialogTitle>
-                  <DialogDescription>
-                    Enter your API keys to enable analysis. Keys are stored locally in your browser.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="openai">OpenAI API Key</Label>
-                    <Input 
-                      id="openai" 
-                      type="password" 
-                      placeholder="sk-..." 
-                      value={keys.openai}
-                      onChange={(e) => setKey("openai", e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="grok">Grok API Key</Label>
-                    <Input 
-                      id="grok" 
-                      type="password" 
-                      placeholder="xai-..." 
-                      value={keys.grok}
-                      onChange={(e) => setKey("grok", e.target.value)}
-                    />
-                  </div>
-                  {/* Add others as needed */}
-                </div>
-                <DialogFooter>
-                  <Button onClick={() => setIsSettingsOpen(false)}>Save & Close</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            <div className="w-px h-4 bg-border" />
-
             <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 px-3 py-1.5 rounded-full">
               <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">Powered by</span>
               <Select value={selectedLLM} onValueChange={(v) => setSelectedLLM(v as LLM)}>
-                <SelectTrigger className="h-7 w-[130px] border-none bg-transparent focus:ring-0 p-0 text-foreground font-medium">
+                <SelectTrigger className="h-7 w-[140px] border-none bg-transparent focus:ring-0 p-0 text-foreground font-medium" data-testid="select-llm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="simulation">Simulation (Free)</SelectItem>
                   <SelectItem value="grok">Grok</SelectItem>
-                  <SelectItem value="openai">OpenAI o1</SelectItem>
-                  {/* Other items disabled until implemented */}
-                  <SelectItem value="anthropic" disabled>Claude 3.5 (Coming Soon)</SelectItem>
-                  <SelectItem value="perplexity" disabled>Perplexity (Coming Soon)</SelectItem>
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="anthropic">Anthropic</SelectItem>
+                  <SelectItem value="perplexity">Perplexity</SelectItem>
+                  <SelectItem value="deepseek">DeepSeek</SelectItem>
                 </SelectContent>
               </Select>
             </div>
