@@ -79,6 +79,7 @@ export default function Home() {
   const [selectedLLM, setSelectedLLM] = useState<LLM>("grok");
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasResult, setHasResult] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
 
   const handleProcess = () => {
@@ -104,8 +105,7 @@ export default function Home() {
     }, 2500);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = (file: File) => {
     if (file) {
       // Simulate reading file
       setText(`[Loaded content from ${file.name}]\n\n` + 
@@ -115,6 +115,25 @@ export default function Home() {
         title: "File Uploaded",
         description: `${file.name} has been loaded successfully.`,
       });
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleFileUpload(file);
     }
   };
 
@@ -173,12 +192,17 @@ export default function Home() {
                   type="file" 
                   className="hidden" 
                   accept=".txt,.doc,.docx,.pdf"
-                  onChange={handleFileUpload}
+                  onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
                 />
               </div>
             </div>
 
-            <Card className="flex-1 p-4 flex flex-col gap-4 border-muted shadow-sm relative group overflow-hidden">
+            <Card 
+              className={`flex-1 p-4 flex flex-col gap-4 border-muted shadow-sm relative group overflow-hidden transition-all duration-200 ${isDragging ? 'border-primary ring-2 ring-primary/20 bg-primary/5' : ''}`}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+            >
               <Textarea 
                 placeholder="Enter text, paste content, or upload a document to begin analysis..." 
                 className="flex-1 resize-none border-none focus-visible:ring-0 p-4 text-lg leading-relaxed font-serif bg-transparent"
@@ -189,10 +213,30 @@ export default function Home() {
               
               {/* Empty State / Dropzone Hint */}
               {!text && (
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-20">
+                <div className={`absolute inset-0 pointer-events-none flex items-center justify-center transition-opacity duration-200 ${isDragging ? 'opacity-80' : 'opacity-20'}`}>
                   <div className="flex flex-col items-center gap-4">
-                    <FileText className="w-16 h-16" />
-                    <p className="text-lg font-medium">Drop files here or start typing</p>
+                    <motion.div
+                      animate={isDragging ? { scale: 1.1, y: -10 } : { scale: 1, y: 0 }}
+                    >
+                      {isDragging ? (
+                        <Upload className="w-16 h-16 text-primary" />
+                      ) : (
+                        <FileText className="w-16 h-16" />
+                      )}
+                    </motion.div>
+                    <p className="text-lg font-medium">
+                      {isDragging ? "Drop file to upload" : "Drop files here or start typing"}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Overlay for Drag State when text exists */}
+              {text && isDragging && (
+                <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-10 border-2 border-dashed border-primary m-2 rounded-lg">
+                  <div className="flex flex-col items-center gap-4 text-primary">
+                    <Upload className="w-16 h-16" />
+                    <p className="text-lg font-medium">Drop file to replace content</p>
                   </div>
                 </div>
               )}
