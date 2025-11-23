@@ -16,8 +16,23 @@ Output valid JSON: {"quotes": [], "annotatedQuotes": [{"quote": "...", "context"
     rewrite: `Compress each paragraph into maximum 2 sentences. Do NOT skip any paragraphs.
 Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "Full compressed text...", "database": ""}`,
     
-    database: `Generate a fine-grained text-file database of the document including: metadata, entities, key concepts, structural map, and sentence index.
-Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "Database text format..."}`
+    database: `Generate an extremely detailed, fine-grained text-file database of the document. Include ALL of the following sections with comprehensive detail:
+
+1. DOCUMENT METADATA: Title (inferred), word count, character count, paragraph count, sentence count, average sentence length, reading level estimate, dominant language/style
+2. NAMED ENTITIES: Extract and categorize all people, places, organizations, dates, times, numbers, and proper nouns with frequency counts
+3. KEY CONCEPTS & THEMES: Identify major themes, topics, and concepts with detailed descriptions and occurrence frequencies
+4. STRUCTURAL ANALYSIS: Paragraph-by-paragraph breakdown with type classification (introduction, argument, evidence, transition, conclusion), topic sentences, and structural relationships
+5. SENTENCE INDEX: Complete sentence-by-sentence listing with classification (declarative, interrogative, imperative), complexity scores, and key information
+6. ENTITY RELATIONSHIPS: Map relationships between identified entities (who relates to whom, what connects to what)
+7. SEMANTIC ANALYSIS: Identify semantic fields, word families, recurring patterns, and linguistic features
+8. STATISTICAL BREAKDOWN: Vocabulary richness, lexical density, type-token ratio, most frequent words (excluding common words)
+9. CITATION & REFERENCE EXTRACTION: Any quotes, citations, references, or allusions to external sources
+10. TEMPORAL & SPATIAL MARKERS: Timeline of events mentioned, geographical references, temporal sequences
+11. RHETORICAL DEVICES: Metaphors, analogies, rhetorical questions, and persuasive techniques identified
+12. ARGUMENTATIVE STRUCTURE: Claims, evidence, warrants, counterarguments if present
+
+Format as a highly structured, detailed database in plain text with clear section headers and hierarchical organization.
+Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "Comprehensive database text..."}`
   };
   
   return prompts[functionType as keyof typeof prompts] || prompts.quotes;
