@@ -3,12 +3,13 @@ export type AnalysisResult = {
   annotatedQuotes: { quote: string; context: string }[];
   summary: string;
   database: string;
+  analyzer: string;
 };
 
 export async function analyzeText(
   text: string, 
   provider: string,
-  functionType: 'quotes' | 'context' | 'rewrite' | 'database'
+  functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer'
 ): Promise<AnalysisResult> {
   const response = await fetch("/api/analyze", {
     method: "POST",
@@ -29,7 +30,7 @@ export async function analyzeText(
 export async function analyzeTextStreaming(
   text: string,
   provider: string,
-  functionType: 'quotes' | 'context' | 'rewrite' | 'database',
+  functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer',
   onChunk: (chunk: string) => void,
   onComplete?: () => void
 ): Promise<void> {

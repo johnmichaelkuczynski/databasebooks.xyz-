@@ -46,7 +46,7 @@ export default function Home() {
   
   const { toast } = useToast();
 
-  const handleProcess = async (functionType: 'quotes' | 'context' | 'rewrite' | 'database') => {
+  const handleProcess = async (functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer') => {
     if (!text.trim()) {
       toast({
         title: "Input required",
@@ -126,6 +126,9 @@ ${result.summary}
 
 --- DATABASE ---
 ${result.database}
+
+--- TEXT ANALYZER ---
+${result.analyzer}
 `;
   };
 
@@ -361,6 +364,15 @@ ${result.database}
                     <Database className="w-5 h-5 mr-2" />
                     DATABASE
                   </Button>
+                  <Button 
+                    onClick={() => handleProcess('analyzer')} 
+                    disabled={isProcessing || !text}
+                    className="col-span-2 h-12 text-sm font-semibold px-5 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white hover:shadow-lg transition-all hover:scale-105"
+                    data-testid="button-analyzer"
+                  >
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    TEXT ANALYZER
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -461,6 +473,7 @@ ${result.database}
                             <TabTrigger value="quotes-context" icon={<AlignLeft className="w-5 h-5" />} label="Context" />
                             <TabTrigger value="summary" icon={<FileText className="w-5 h-5" />} label="Rewrite" />
                             <TabTrigger value="database" icon={<Database className="w-5 h-5" />} label="Database" />
+                            <TabTrigger value="analyzer" icon={<Sparkles className="w-5 h-5" />} label="Analyzer" />
                           </TabsList>
                         </div>
 
@@ -510,6 +523,14 @@ ${result.database}
                                 <div className="bg-gray-900 rounded-lg p-6 border-2 border-gray-200 overflow-x-auto shadow-lg">
                                   <pre className="font-mono text-sm text-gray-100 leading-relaxed">
                                     {result.database}
+                                  </pre>
+                                </div>
+                              </TabsContent>
+
+                              <TabsContent value="analyzer" className="mt-0 outline-none h-full">
+                                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 border-2 border-purple-200 shadow-lg">
+                                  <pre className="font-sans text-base text-foreground whitespace-pre-wrap leading-relaxed">
+                                    {result.analyzer}
                                   </pre>
                                 </div>
                               </TabsContent>

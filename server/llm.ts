@@ -3,18 +3,19 @@ export type AnalysisResult = {
   annotatedQuotes: { quote: string; context: string }[];
   summary: string;
   database: string;
+  analyzer: string;
 };
 
 function getSystemPrompt(functionType: string, minQuotes: number): string {
   const prompts = {
     quotes: `Extract the best quotations from the text. Minimum of ${minQuotes} quotes.
-Output valid JSON: {"quotes": ["quote 1", "quote 2", ...], "annotatedQuotes": [], "summary": "", "database": ""}`,
+Output valid JSON: {"quotes": ["quote 1", "quote 2", ...], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": ""}`,
     
     context: `Extract the best quotations with one-line contextual commentary. Minimum of ${minQuotes} quotes.
-Output valid JSON: {"quotes": [], "annotatedQuotes": [{"quote": "...", "context": "..."}, ...], "summary": "", "database": ""}`,
+Output valid JSON: {"quotes": [], "annotatedQuotes": [{"quote": "...", "context": "..."}, ...], "summary": "", "database": "", "analyzer": ""}`,
     
     rewrite: `Compress each paragraph into maximum 2 sentences. Do NOT skip any paragraphs.
-Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "Full compressed text...", "database": ""}`,
+Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "Full compressed text...", "database": "", "analyzer": ""}`,
     
     database: `Generate an extremely detailed, fine-grained text-file database of the document. Include ALL of the following sections with comprehensive detail:
 
@@ -32,7 +33,119 @@ Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "Full compre
 12. ARGUMENTATIVE STRUCTURE: Claims, evidence, warrants, counterarguments if present
 
 Format as a highly structured, detailed database in plain text with clear section headers and hierarchical organization.
-Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "Comprehensive database text..."}`
+Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "Comprehensive database text...", "analyzer": ""}`,
+
+    analyzer: `Perform an EXTREMELY COMPREHENSIVE scholarly analysis of this text. This analysis should be approximately THREE TIMES as detailed and in-depth as a standard academic analysis. Include ALL of the following sections with exhaustive detail:
+
+═══════════════════════════════════════════════════════════════════
+
+SECTION 1: DOMAIN & DISCIPLINARY CONTEXT
+- Primary academic domain(s) and subdomain(s)
+- Interdisciplinary connections and influences
+- Historical positioning within the field
+- Relationship to major schools of thought
+- Target audience and scholarly community
+
+SECTION 2: MAIN THESIS & CENTRAL ARGUMENTS
+- Core thesis statement (multiple formulations if complex)
+- Primary arguments supporting the thesis (numbered, with detailed explanations)
+- Secondary arguments and subsidiary claims
+- Implicit assumptions underlying the arguments
+- Logical structure of the overall argument
+- Argument progression and development throughout the text
+
+SECTION 3: REPRESENTATIVE QUOTATIONS (Minimum ${minQuotes * 2} quotations)
+- Extract the most philosophically/intellectually significant passages
+- Include direct quotations that capture:
+  * The author's main position
+  * Key supporting arguments
+  * Crucial definitions or conceptual distinctions
+  * Positions being criticized or refuted
+  * Methodological statements
+  * Pivotal turns in the argument
+- For EACH quotation, provide: the exact quote, its location/context in the text, and its significance
+
+SECTION 4: ANALYTICAL MOVES DEPLOYED
+Identify and explain IN DETAIL every major analytical technique used:
+- Conceptual analysis and distinctions drawn
+- Argumentation strategies (reductio ad absurdum, modus tollens, etc.)
+- Category error detection
+- Counterfactual reasoning
+- Thought experiments
+- Analogies and comparisons
+- Appeals to intuition
+- Inference to best explanation
+- Transcendental arguments
+- Dialectical moves
+- Deconstructive strategies
+- Hermeneutical approaches
+- For each move: explain what it is, where it appears, how it functions in the argument
+
+SECTION 5: THEORETICAL FRAMEWORK & METHODOLOGY
+- Philosophical or theoretical commitments
+- Methodological approach (analytical, continental, empirical, etc.)
+- Epistemological assumptions
+- Ontological commitments
+- Use of formal logic or informal reasoning
+- Relationship to empirical evidence
+
+SECTION 6: INTELLECTUAL GENEALOGY
+- Thinkers and theories explicitly referenced
+- Implicit influences and philosophical heritage
+- Positions being argued against (with named opponents if present)
+- Historical debates the text engages with
+- Canonical texts or ideas invoked
+
+SECTION 7: CONCEPTUAL APPARATUS
+- Key terms and their definitions
+- Technical vocabulary introduced or employed
+- Distinctions drawn between related concepts
+- Theoretical innovations or neologisms
+- Repurposing of existing concepts
+
+SECTION 8: ARGUMENTATIVE STRUCTURE
+- Overall organization of the argument
+- Logical dependencies between claims
+- Progression from premises to conclusions
+- Use of examples, illustrations, or case studies
+- Anticipation and response to objections
+- Dialectical structure (if present)
+
+SECTION 9: CRITICAL EVALUATION INDICATORS
+- Strengths of the argument
+- Potential weaknesses or gaps
+- Unstated assumptions that could be challenged
+- Alternative interpretations or objections not addressed
+- Scope and limitations of the claims
+
+SECTION 10: IMPLICATIONS & CONSEQUENCES
+- Theoretical implications
+- Practical consequences
+- What follows if the thesis is correct
+- What's at stake in accepting or rejecting the position
+- Ramifications for related debates
+
+SECTION 11: RHETORICAL & STYLISTIC FEATURES
+- Tone and register (formal, polemical, pedagogical, etc.)
+- Use of rhetoric and persuasive devices
+- Structural choices and their effects
+- Relationship to reader (adversarial, cooperative, pedagogical)
+
+SECTION 12: INTERTEXTUAL CONNECTIONS
+- Relationship to other works by the same author
+- Dialogue with contemporary or historical texts
+- Position within broader scholarly conversations
+
+═══════════════════════════════════════════════════════════════════
+
+FORMATTING REQUIREMENTS:
+- Use clear section headers with visual separators
+- Number all major points within sections
+- Use hierarchical organization (main points, subpoints, details)
+- Provide extensive detail - this should be a COMPREHENSIVE analysis approximately 3x the length of a standard analysis
+- Be specific, cite exact passages where relevant, and provide deep interpretive insights
+
+Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": "Complete comprehensive analysis text..."}`
   };
   
   return prompts[functionType as keyof typeof prompts] || prompts.quotes;
