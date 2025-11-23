@@ -160,6 +160,42 @@ function calculateMinQuotes(text: string): number {
   return Math.max(3, Math.ceil((wordCount / 600) * 3));
 }
 
+function parseJSON(content: string): AnalysisResult {
+  // First, try to extract JSON from markdown code blocks
+  const jsonMatch = content.match(/```json\s*\n([\s\S]*?)\n```/) || content.match(/```\s*\n([\s\S]*?)\n```/);
+  let jsonString = jsonMatch ? jsonMatch[1] : content;
+  
+  // Remove any trailing/leading whitespace
+  jsonString = jsonString.trim();
+  
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    // If direct parsing fails, try to extract just the JSON object
+    const objectMatch = jsonString.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+      try {
+        return JSON.parse(objectMatch[0]);
+      } catch (e2) {
+        // Log the error for debugging
+        console.error("JSON parse error:", e2);
+        console.error("Content length:", objectMatch[0].length);
+        console.error("First 500 chars:", objectMatch[0].substring(0, 500));
+        
+        // Create a default result to prevent total failure
+        return {
+          quotes: [],
+          annotatedQuotes: [],
+          summary: "Error parsing response: " + (e2 as Error).message + ". Raw content length: " + content.length,
+          database: "",
+          analyzer: content  // Include raw content in analyzer field for debugging
+        };
+      }
+    }
+    throw new Error("Failed to extract JSON from response");
+  }
+}
+
 async function callOpenAI(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
   const minQuotes = calculateMinQuotes(text);
   const prompt = getSystemPrompt(functionType, minQuotes);
@@ -186,7 +222,7 @@ async function callOpenAI(text: string, apiKey: string, functionType: string): P
   }
 
   const data = await response.json();
-  return JSON.parse(data.choices[0].message.content);
+  return parseJSON(data.choices[0].message.content);
 }
 
 async function callOpenAIStreaming(text: string, apiKey: string, functionType: string, onChunk: (chunk: string) => void): Promise<void> {
@@ -275,17 +311,7 @@ async function callAnthropic(text: string, apiKey: string, functionType: string)
 
   const data = await response.json();
   const content = data.content[0].text;
-  
-  // Try to parse JSON, handle markdown code blocks
-  try {
-    return JSON.parse(content);
-  } catch (e) {
-    const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[1] || jsonMatch[0]);
-    }
-    throw new Error("Failed to parse Anthropic response");
-  }
+  return parseJSON(content);
 }
 
 async function callGrok(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
@@ -304,7 +330,8 @@ async function callGrok(text: string, apiKey: string, functionType: string): Pro
         { role: "system", content: prompt },
         { role: "user", content: text }
       ],
-      temperature: 0
+      temperature: 0,
+      response_format: { type: "json_object" }
     })
   });
 
@@ -315,17 +342,7 @@ async function callGrok(text: string, apiKey: string, functionType: string): Pro
 
   const data = await response.json();
   const content = data.choices[0].message.content;
-  
-  // Try to parse JSON, handle markdown code blocks
-  try {
-    return JSON.parse(content);
-  } catch (e) {
-    const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[1] || jsonMatch[0]);
-    }
-    throw new Error("Failed to parse Grok response");
-  }
+  return parseJSON(content);
 }
 
 async function callPerplexity(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
@@ -354,17 +371,7 @@ async function callPerplexity(text: string, apiKey: string, functionType: string
 
   const data = await response.json();
   const content = data.choices[0].message.content;
-  
-  // Try to parse JSON, handle markdown code blocks
-  try {
-    return JSON.parse(content);
-  } catch (e) {
-    const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[1] || jsonMatch[0]);
-    }
-    throw new Error("Failed to parse Perplexity response");
-  }
+  return parseJSON(content);
 }
 
 async function callDeepSeek(text: string, apiKey: string, functionType: string): Promise<AnalysisResult> {
@@ -394,17 +401,7 @@ async function callDeepSeek(text: string, apiKey: string, functionType: string):
 
   const data = await response.json();
   const content = data.choices[0].message.content;
-  
-  // Try to parse JSON
-  try {
-    return JSON.parse(content);
-  } catch (e) {
-    const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[1] || jsonMatch[0]);
-    }
-    throw new Error("Failed to parse DeepSeek response");
-  }
+  return parseJSON(content);
 }
 
 export async function analyzeText(text: string, provider: string, functionType: string): Promise<AnalysisResult> {
