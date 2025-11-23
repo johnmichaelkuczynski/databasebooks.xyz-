@@ -53,44 +53,44 @@
   --radius: 0.5rem;
 }
 
-/* ULTRA HIGH CONTRAST NEON NOIR */
+/* ULTRA BRIGHT WHITE THEME */
 :root {
-  --background: 0 0% 2%; /* Pure black */
-  --foreground: 0 0% 98%; /* Pure white */
+  --background: 0 0% 100%; /* Pure white */
+  --foreground: 0 0% 0%; /* Pure black */
   
-  --card: 0 0% 5%;
-  --card-foreground: 0 0% 98%;
+  --card: 0 0% 98%;
+  --card-foreground: 0 0% 0%;
   
-  --popover: 0 0% 5%;
-  --popover-foreground: 0 0% 98%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 0%;
   
-  --primary: 311 100% 55%; /* Neon magenta */
-  --primary-foreground: 0 0% 0%;
+  --primary: 220 100% 50%; /* Vibrant blue */
+  --primary-foreground: 0 0% 100%;
   
-  --secondary: 189 100% 40%; /* Cyan glow */
-  --secondary-foreground: 0 0% 0%;
+  --secondary: 280 100% 45%; /* Vibrant purple */
+  --secondary-foreground: 0 0% 100%;
   
-  --muted: 0 0% 10%;
-  --muted-foreground: 0 0% 60%;
+  --muted: 0 0% 95%;
+  --muted-foreground: 0 0% 40%;
   
-  --accent: 120 100% 52%; /* Electric lime */
-  --accent-foreground: 0 0% 0%;
+  --accent: 160 100% 40%; /* Vibrant teal */
+  --accent-foreground: 0 0% 100%;
   
   --destructive: 0 100% 50%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive-foreground: 0 0% 100%;
 
-  --border: 0 0% 18%; /* Visible border */
-  --input: 0 0% 12%;
-  --ring: 311 100% 55%;
+  --border: 0 0% 85%;
+  --input: 0 0% 92%;
+  --ring: 220 100% 50%;
   
-  --sidebar: 0 0% 2%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-primary: 311 100% 55%;
-  --sidebar-primary-foreground: 0 0% 0%;
-  --sidebar-accent: 0 0% 10%;
-  --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-border: 0 0% 18%;
-  --sidebar-ring: 311 100% 55%;
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 0 0% 0%;
+  --sidebar-primary: 220 100% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 95%;
+  --sidebar-accent-foreground: 0 0% 0%;
+  --sidebar-border: 0 0% 85%;
+  --sidebar-ring: 220 100% 50%;
 }
 
 .dark {

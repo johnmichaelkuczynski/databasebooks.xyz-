@@ -113,7 +113,7 @@ async function callGrok(text: string, apiKey: string, functionType: string): Pro
       "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "grok-beta",
+      model: "grok-2-latest",
       messages: [
         { role: "system", content: prompt },
         { role: "user", content: text }

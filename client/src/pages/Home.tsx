@@ -180,25 +180,21 @@ ${result.database}
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-black relative">
-      {/* Neon gradient background */}
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(311,100%,55%,0.15),transparent_50%)] pointer-events-none"></div>
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_80%_50%,rgba(189,100%,40%,0.15),transparent_50%)] pointer-events-none"></div>
-      
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-white">
       {/* Header */}
-      <header className="border-b-4 border-primary/50 sticky top-0 z-50 bg-background/80 backdrop-blur-xl shadow-[0_0_40px_rgba(311,100%,55%,0.3)]">
+      <header className="border-b-4 border-primary sticky top-0 z-50 bg-white shadow-lg">
         <div className="w-full px-10 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent text-black rounded-lg flex items-center justify-center shadow-[0_0_20px_rgba(311,100%,55%,0.6)]">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary text-white rounded-lg flex items-center justify-center shadow-lg">
               <Sparkles className="w-6 h-6" />
             </div>
-            <h1 className="font-bold text-2xl tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">TEXT INTELLIGENCE STUDIO</h1>
+            <h1 className="font-bold text-2xl tracking-tight text-foreground">TEXT INTELLIGENCE STUDIO</h1>
           </div>
           
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 text-base text-foreground bg-white/5 border-2 border-secondary/50 px-5 py-2.5 rounded-lg shadow-[0_0_20px_rgba(189,100%,40%,0.3)]">
-              <Bot className="w-5 h-5 text-secondary" />
-              <span className="font-semibold text-secondary">LLM:</span>
+            <div className="flex items-center gap-3 text-base text-foreground bg-gray-100 border-2 border-gray-300 px-5 py-2.5 rounded-lg shadow-md">
+              <Bot className="w-5 h-5 text-primary" />
+              <span className="font-semibold text-foreground">LLM:</span>
               <Select value={selectedLLM} onValueChange={(v) => setSelectedLLM(v as LLM)}>
                 <SelectTrigger className="h-8 w-[140px] border-none bg-transparent focus:ring-0 p-0 text-foreground font-bold uppercase" data-testid="select-llm">
                   <SelectValue />
@@ -216,11 +212,11 @@ ${result.database}
         </div>
       </header>
 
-      <main className="w-full px-10 py-8 relative z-10">
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 h-[calc(100vh-7rem)]">
+      <main className="w-full px-10 py-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8" style={{minHeight: 'calc(100vh - 6rem)'}}>
           
           {/* Input Section */}
-          <section className="flex flex-col gap-4 h-full">
+          <section className="flex flex-col gap-4" style={{minHeight: 'calc(100vh - 8rem)'}}>
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-primary flex items-center gap-2.5 uppercase tracking-wide">
                 <FileText className="w-6 h-6" />
@@ -231,7 +227,7 @@ ${result.database}
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="h-10 text-sm gap-2 text-muted-foreground hover:text-destructive hover:shadow-[0_0_15px_rgba(255,0,0,0.5)] transition-all"
+                    className="h-10 text-sm gap-2 text-muted-foreground hover:text-destructive transition-all"
                     onClick={handleClearInput}
                     title="Clear Input"
                   >
@@ -242,7 +238,7 @@ ${result.database}
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="h-10 text-sm gap-2 border-2 border-secondary/50 hover:shadow-[0_0_15px_rgba(189,100%,40%,0.5)] transition-all"
+                  className="h-10 text-sm gap-2 border-2 border-gray-300 hover:bg-gray-100 transition-all"
                   onClick={() => document.getElementById('file-upload')?.click()}
                 >
                   <Upload className="w-4 h-4" />
@@ -259,14 +255,15 @@ ${result.database}
             </div>
 
             <Card 
-              className={`min-h-[42rem] p-6 flex flex-col gap-4 border-4 bg-white/5 backdrop-blur-xl relative group overflow-hidden transition-all duration-300 ${isDragging ? 'border-primary shadow-[0_0_40px_rgba(311,100%,55%,0.6)] scale-[1.01]' : 'border-white/20 shadow-[0_0_40px_rgba(255,0,255,0.3)]'}`}
+              className={`flex-1 p-6 flex flex-col gap-4 border-4 bg-white relative group overflow-hidden transition-all duration-300 shadow-xl ${isDragging ? 'border-primary ring-4 ring-primary/20' : 'border-gray-300'}`}
               onDragOver={onDragOver}
               onDragLeave={onDragLeave}
               onDrop={onDrop}
+              style={{minHeight: 'calc(100vh - 20rem)'}}
             >
               <Textarea 
                 placeholder="Enter text, paste content, or drag files here to begin analysis..." 
-                className="flex-1 resize-none border-none focus-visible:ring-0 p-6 text-xl leading-relaxed font-serif bg-transparent placeholder:text-muted-foreground/50"
+                className="flex-1 resize-none border-none focus-visible:ring-0 p-6 text-xl leading-relaxed font-serif bg-transparent placeholder:text-gray-400"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 data-testid="input-text"
@@ -302,9 +299,9 @@ ${result.database}
                 </div>
               )}
 
-              <div className="flex flex-col gap-4 pt-4 border-t-4 border-primary/30">
+              <div className="flex flex-col gap-4 pt-4 border-t-4 border-gray-300">
                 <div className="flex justify-between items-center">
-                  <span className="text-base font-mono font-bold text-primary uppercase tracking-widest bg-primary/10 px-4 py-2 rounded-lg">
+                  <span className="text-base font-mono font-bold text-primary uppercase tracking-widest bg-blue-100 px-4 py-2 rounded-lg border-2 border-primary">
                     {text.split(/\s+/).filter(Boolean).length} WORDS
                   </span>
                 </div>
@@ -312,7 +309,7 @@ ${result.database}
                   <Button 
                     onClick={() => handleProcess('quotes')} 
                     disabled={isProcessing || !text}
-                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-primary to-accent text-black hover:shadow-[0_0_20px_rgba(311,100%,55%,0.8)] transition-all hover:scale-105"
+                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-primary to-secondary text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-quotes"
                   >
                     <Quote className="w-5 h-5 mr-2" />
@@ -321,7 +318,7 @@ ${result.database}
                   <Button 
                     onClick={() => handleProcess('context')} 
                     disabled={isProcessing || !text}
-                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-secondary to-primary text-black hover:shadow-[0_0_20px_rgba(189,100%,40%,0.8)] transition-all hover:scale-105"
+                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-secondary to-accent text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-context"
                   >
                     <AlignLeft className="w-5 h-5 mr-2" />
@@ -330,7 +327,7 @@ ${result.database}
                   <Button 
                     onClick={() => handleProcess('rewrite')} 
                     disabled={isProcessing || !text}
-                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-accent to-secondary text-black hover:shadow-[0_0_20px_rgba(120,100%,52%,0.8)] transition-all hover:scale-105"
+                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-accent to-primary text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-rewrite"
                   >
                     <FileText className="w-5 h-5 mr-2" />
@@ -339,7 +336,7 @@ ${result.database}
                   <Button 
                     onClick={() => handleProcess('database')} 
                     disabled={isProcessing || !text}
-                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-primary via-secondary to-accent text-black hover:shadow-[0_0_20px_rgba(189,100%,40%,0.8)] transition-all hover:scale-105"
+                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-primary via-secondary to-accent text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-database"
                   >
                     <Database className="w-5 h-5 mr-2" />
@@ -351,7 +348,7 @@ ${result.database}
           </section>
 
           {/* Output Section */}
-          <section className="flex flex-col gap-4 h-full">
+          <section className="flex flex-col gap-4" style={{minHeight: 'calc(100vh - 8rem)'}}>
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-secondary flex items-center gap-2.5 uppercase tracking-wide">
                 <Sparkles className="w-6 h-6" />
@@ -362,35 +359,36 @@ ${result.database}
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-10 w-10 text-muted-foreground hover:text-destructive hover:shadow-[0_0_15px_rgba(255,0,0,0.5)] transition-all" 
+                    className="h-10 w-10 text-muted-foreground hover:text-destructive transition-all" 
                     title="Clear Results"
                     onClick={handleClearOutput}
                   >
                     <RotateCcw className="w-5 h-5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-10 w-10 hover:shadow-[0_0_15px_rgba(189,100%,40%,0.5)] transition-all" title="Copy All" onClick={handleCopy}>
+                  <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-gray-100 transition-all" title="Copy All" onClick={handleCopy}>
                     <Copy className="w-5 h-5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-10 w-10 hover:shadow-[0_0_15px_rgba(120,100%,52%,0.5)] transition-all" title="Download Report" onClick={handleDownload}>
+                  <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-gray-100 transition-all" title="Download Report" onClick={handleDownload}>
                     <Download className="w-5 h-5" />
                   </Button>
                 </div>
               )}
             </div>
 
-            <div className="flex-1 relative">
+            <div className="flex-1">
               <AnimatePresence mode="wait">
                 {!hasResult || !result ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="min-h-[42rem] border-4 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-white/5 backdrop-blur-xl p-8 text-center shadow-[0_0_40px_rgba(189,100%,40%,0.3)]"
+                    className="border-4 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-gray-50 p-8 text-center shadow-xl"
+                    style={{minHeight: 'calc(100vh - 20rem)'}}
                   >
-                    <div className="w-20 h-20 rounded-full bg-secondary/20 flex items-center justify-center mb-5 shadow-[0_0_30px_rgba(189,100%,40%,0.5)]">
-                      <Bot className="w-10 h-10 text-secondary" />
+                    <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mb-5 shadow-lg">
+                      <Bot className="w-10 h-10 text-primary" />
                     </div>
-                    <h3 className="text-xl font-bold mb-2 text-secondary uppercase tracking-wide">Ready to Analyze</h3>
+                    <h3 className="text-xl font-bold mb-2 text-foreground uppercase tracking-wide">Ready to Analyze</h3>
                     <p className="max-w-md text-base text-muted-foreground">
                       Select your LLM and click a function button to generate quotes, context, rewrites, or database metadata.
                     </p>
@@ -401,9 +399,9 @@ ${result.database}
                     animate={{ opacity: 1, y: 0 }}
                     className="h-full"
                   >
-                    <Card className="min-h-[42rem] border-4 border-white/20 bg-white/5 backdrop-blur-xl shadow-[0_0_40px_rgba(189,100%,40%,0.3)] overflow-hidden flex flex-col">
+                    <Card className="border-4 border-gray-300 bg-white shadow-xl overflow-hidden flex flex-col" style={{minHeight: 'calc(100vh - 20rem)'}}>
                       <Tabs defaultValue="quotes-list" className="w-full h-full flex flex-col">
-                        <div className="border-b-4 border-primary/30 px-6 bg-white/5">
+                        <div className="border-b-4 border-gray-200 px-6 bg-gray-50">
                           <TabsList className="h-12 bg-transparent p-0 gap-6">
                             <TabTrigger value="quotes-list" icon={<Quote className="w-5 h-5" />} label="Quotes" />
                             <TabTrigger value="quotes-context" icon={<AlignLeft className="w-5 h-5" />} label="Context" />
@@ -418,8 +416,8 @@ ${result.database}
                               <TabsContent value="quotes-list" className="mt-0 space-y-4 outline-none">
                                 <ul className="space-y-4">
                                   {result.quotes.map((quote, i) => (
-                                    <li key={i} className="flex gap-4 group p-4 rounded-lg hover:bg-primary/10 transition-all border-2 border-transparent hover:border-primary/50 hover:shadow-[0_0_15px_rgba(311,100%,55%,0.3)]">
-                                      <span className="flex-none w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent text-black flex items-center justify-center text-base font-bold shadow-[0_0_10px_rgba(311,100%,55%,0.5)]">
+                                    <li key={i} className="flex gap-4 group p-4 rounded-lg hover:bg-blue-50 transition-all border-2 border-gray-200 hover:border-primary hover:shadow-md">
+                                      <span className="flex-none w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center text-base font-bold shadow-md">
                                         {i + 1}
                                       </span>
                                       <p className="font-serif text-lg leading-relaxed text-foreground">
@@ -433,12 +431,12 @@ ${result.database}
                               <TabsContent value="quotes-context" className="mt-0 space-y-5 outline-none">
                                 <div className="space-y-5">
                                   {result.annotatedQuotes.map((item, i) => (
-                                    <div key={i} className="group p-5 rounded-lg border-3 border-white/20 hover:border-secondary/50 transition-all bg-white/5 hover:shadow-[0_0_20px_rgba(189,100%,40%,0.3)]">
+                                    <div key={i} className="group p-5 rounded-lg border-2 border-gray-200 hover:border-secondary transition-all bg-gray-50 hover:shadow-lg">
                                       <blockquote className="font-serif text-lg text-foreground border-l-4 border-secondary pl-5 py-2 mb-3">
                                         "{item.quote}"
                                       </blockquote>
-                                      <div className="flex items-start gap-3 pl-5 text-base text-secondary/90 font-medium">
-                                        <span className="mt-2 w-2 h-2 rounded-full bg-accent shrink-0 shadow-[0_0_8px_rgba(120,100%,52%,0.8)]" />
+                                      <div className="flex items-start gap-3 pl-5 text-base text-gray-700 font-medium">
+                                        <span className="mt-2 w-2 h-2 rounded-full bg-accent shrink-0" />
                                         <p>{item.context}</p>
                                       </div>
                                     </div>
@@ -447,7 +445,7 @@ ${result.database}
                               </TabsContent>
 
                               <TabsContent value="summary" className="mt-0 space-y-4 outline-none">
-                                <div className="p-6 bg-white/5 rounded-lg border-3 border-white/20 shadow-[0_0_20px_rgba(120,100%,52%,0.3)]">
+                                <div className="p-6 bg-gray-50 rounded-lg border-2 border-gray-200 shadow-lg">
                                   <p className="text-lg leading-relaxed font-serif text-foreground">
                                     {result.summary}
                                   </p>
@@ -455,8 +453,8 @@ ${result.database}
                               </TabsContent>
 
                               <TabsContent value="database" className="mt-0 outline-none h-full">
-                                <div className="bg-black/50 rounded-lg p-6 border-3 border-white/20 overflow-x-auto shadow-[0_0_20px_rgba(189,100%,40%,0.3)]">
-                                  <pre className="font-mono text-sm text-foreground leading-relaxed">
+                                <div className="bg-gray-900 rounded-lg p-6 border-2 border-gray-200 overflow-x-auto shadow-lg">
+                                  <pre className="font-mono text-sm text-gray-100 leading-relaxed">
                                     {result.database}
                                   </pre>
                                 </div>
@@ -481,7 +479,7 @@ function TabTrigger({ value, icon, label }: { value: string, icon: React.ReactNo
   return (
     <TabsTrigger 
       value={value}
-      className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-primary rounded-none h-full px-0 data-[state=active]:text-primary text-muted-foreground hover:text-foreground transition-all gap-2.5 text-base font-bold uppercase tracking-wide data-[state=active]:shadow-[0_4px_0_rgba(311,100%,55%,0.6)]"
+      className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-primary rounded-none h-full px-0 data-[state=active]:text-primary text-muted-foreground hover:text-foreground transition-all gap-2.5 text-base font-bold uppercase tracking-wide"
     >
       {icon}
       {label}
