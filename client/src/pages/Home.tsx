@@ -31,6 +31,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { analyzeText, analyzeTextStreaming, AnalysisResult } from "@/lib/llm";
 
 type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek";
@@ -240,10 +241,10 @@ ${result.analyzer}
       </header>
 
       <main className="w-full px-10 py-6">
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8" style={{minHeight: 'calc(100vh - 6rem)'}}>
-          
+        <ResizablePanelGroup direction="horizontal" className="gap-8" style={{minHeight: 'calc(100vh - 6rem)'}}>
+          <ResizablePanel defaultSize={50} minSize={30}>
           {/* Input Section */}
-          <section className="flex flex-col gap-4" style={{minHeight: 'calc(100vh - 8rem)'}}>
+          <section className="flex flex-col gap-4 h-full">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-primary flex items-center gap-2.5 uppercase tracking-wide">
                 <FileText className="w-6 h-6" />
@@ -382,9 +383,13 @@ ${result.analyzer}
               </div>
             </Card>
           </section>
-
+          </ResizablePanel>
+          
+          <ResizableHandle withHandle className="mx-4" />
+          
+          <ResizablePanel defaultSize={50} minSize={30}>
           {/* Output Section */}
-          <section className="flex flex-col gap-4" style={{minHeight: 'calc(100vh - 8rem)'}}>
+          <section className="flex flex-col gap-4 h-full">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-secondary flex items-center gap-2.5 uppercase tracking-wide">
                 <Sparkles className="w-6 h-6" />
@@ -560,7 +565,8 @@ ${result.analyzer}
               </AnimatePresence>
             </div>
           </section>
-        </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </main>
     </div>
   );
