@@ -8,10 +8,30 @@ export type AnalysisResult = {
 
 function getSystemPrompt(functionType: string, minQuotes: number): string {
   const prompts = {
-    quotes: `Extract the best quotations from the text. Minimum of ${minQuotes} quotes.
+    quotes: `Extract the best quotations from the text.
+
+⚠️ CRITICAL REQUIREMENT: You MUST extract AT LEAST ${minQuotes} quotes. This is a MINIMUM, not a target.
+⚠️ For longer texts, extract MORE quotes than the minimum. The minimum is based on 3 quotes per 600 words.
+⚠️ DO NOT stop after a few quotes - continue extracting until you have provided at least ${minQuotes} high-quality quotations.
+
+Select quotations that are:
+- Philosophically or intellectually significant
+- Representative of key ideas and arguments
+- Varied across different sections of the text
+- Complete enough to be meaningful on their own
+
 Output valid JSON: {"quotes": ["quote 1", "quote 2", ...], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": ""}`,
     
-    context: `Extract the best quotations with one-line contextual commentary. Minimum of ${minQuotes} quotes.
+    context: `Extract the best quotations with one-line contextual commentary.
+
+⚠️ CRITICAL REQUIREMENT: You MUST extract AT LEAST ${minQuotes} quotes. This is a MINIMUM, not a target.
+⚠️ For longer texts, extract MORE quotes than the minimum. The minimum is based on 3 quotes per 600 words.
+⚠️ DO NOT stop after a few quotes - continue extracting until you have provided at least ${minQuotes} annotated quotations.
+
+For each quote, provide:
+1. The exact quotation
+2. A one-line contextual commentary explaining its significance
+
 Output valid JSON: {"quotes": [], "annotatedQuotes": [{"quote": "...", "context": "..."}, ...], "summary": "", "database": "", "analyzer": ""}`,
     
     rewrite: `Compress each paragraph into maximum 2 sentences. Do NOT skip any paragraphs.
@@ -212,6 +232,7 @@ async function callOpenAI(text: string, apiKey: string, functionType: string): P
         { role: "system", content: prompt },
         { role: "user", content: text }
       ],
+      max_tokens: 16384,
       response_format: { type: "json_object" }
     })
   });
@@ -241,6 +262,7 @@ async function callOpenAIStreaming(text: string, apiKey: string, functionType: s
         { role: "system", content: prompt },
         { role: "user", content: text }
       ],
+      max_tokens: 16384,
       stream: true
     })
   });
@@ -296,7 +318,7 @@ async function callAnthropic(text: string, apiKey: string, functionType: string)
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-5",
-      max_tokens: 8000,
+      max_tokens: 16384,
       system: prompt,
       messages: [
         { role: "user", content: text }
@@ -330,6 +352,7 @@ async function callGrok(text: string, apiKey: string, functionType: string): Pro
         { role: "system", content: prompt },
         { role: "user", content: text }
       ],
+      max_tokens: 16384,
       temperature: 0,
       response_format: { type: "json_object" }
     })
@@ -360,7 +383,8 @@ async function callPerplexity(text: string, apiKey: string, functionType: string
       messages: [
         { role: "system", content: prompt },
         { role: "user", content: text }
-      ]
+      ],
+      max_tokens: 16384
     })
   });
 
@@ -390,6 +414,7 @@ async function callDeepSeek(text: string, apiKey: string, functionType: string):
         { role: "system", content: prompt },
         { role: "user", content: text }
       ],
+      max_tokens: 16384,
       response_format: { type: "json_object" }
     })
   });
