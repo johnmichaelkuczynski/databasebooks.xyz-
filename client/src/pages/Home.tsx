@@ -477,13 +477,13 @@ ${result.analyzer}
                   >
                     <Card className="border-4 border-gray-300 bg-white shadow-xl overflow-hidden flex flex-col" style={{minHeight: 'calc(100vh - 20rem)'}}>
                       <Tabs defaultValue="quotes-list" className="w-full h-full flex flex-col">
-                        <div className="border-b-4 border-gray-200 px-6 bg-gray-50">
-                          <TabsList className="h-12 bg-transparent p-0 gap-6">
-                            <TabTrigger value="quotes-list" icon={<Quote className="w-5 h-5" />} label="Quotes" />
-                            <TabTrigger value="quotes-context" icon={<AlignLeft className="w-5 h-5" />} label="Context" />
-                            <TabTrigger value="summary" icon={<FileText className="w-5 h-5" />} label="Rewrite" />
-                            <TabTrigger value="database" icon={<Database className="w-5 h-5" />} label="Database" />
-                            <TabTrigger value="analyzer" icon={<Sparkles className="w-5 h-5" />} label="Analyzer" />
+                        <div className="border-b-4 border-gray-200 px-6 bg-gray-50 overflow-x-auto">
+                          <TabsList className="h-14 bg-transparent p-0 gap-4 flex-nowrap min-w-max">
+                            <TabTrigger value="quotes-list" icon={<Quote className="w-4 h-4" />} label="Quotes" />
+                            <TabTrigger value="quotes-context" icon={<AlignLeft className="w-4 h-4" />} label="Context" />
+                            <TabTrigger value="summary" icon={<FileText className="w-4 h-4" />} label="Rewrite" />
+                            <TabTrigger value="database" icon={<Database className="w-4 h-4" />} label="Database" />
+                            <TabTrigger value="analyzer" icon={<Sparkles className="w-4 h-4" />} label="Text Analyzer" />
                           </TabsList>
                         </div>
 
