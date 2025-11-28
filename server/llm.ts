@@ -572,3 +572,81 @@ export async function analyzeTextStreaming(text: string, provider: string, funct
       throw new Error(`Unknown provider: ${provider}`);
   }
 }
+
+export async function callLLM(provider: string, prompt: string): Promise<string> {
+  const apiKeys = {
+    openai: process.env.OPENAI_API_KEY || "",
+    anthropic: process.env.ANTHROPIC_API_KEY || "",
+    grok: process.env.GROK_API_KEY || "",
+    perplexity: process.env.PERPLEXITY_API_KEY || "",
+    deepseek: process.env.DEEPSEEK_API_KEY || "",
+  };
+
+  const makeRequest = async (url: string, apiKey: string, model: string) => {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 16384,
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API Error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  };
+
+  switch (provider) {
+    case "openai":
+      if (!apiKeys.openai) throw new Error("OPENAI_API_KEY not configured");
+      return makeRequest("https://api.openai.com/v1/chat/completions", apiKeys.openai, "gpt-4o");
+    
+    case "anthropic":
+      if (!apiKeys.anthropic) throw new Error("ANTHROPIC_API_KEY not configured");
+      const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKeys.anthropic,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 16384,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+      if (!anthropicResponse.ok) {
+        const err = await anthropicResponse.text();
+        throw new Error(`Anthropic API Error: ${err}`);
+      }
+      const anthropicData = await anthropicResponse.json();
+      return anthropicData.content[0].text;
+    
+    case "grok":
+      if (!apiKeys.grok) throw new Error("GROK_API_KEY not configured");
+      return makeRequest("https://api.x.ai/v1/chat/completions", apiKeys.grok, "grok-3-latest");
+    
+    case "perplexity":
+      if (!apiKeys.perplexity) throw new Error("PERPLEXITY_API_KEY not configured");
+      return makeRequest("https://api.perplexity.ai/chat/completions", apiKeys.perplexity, "sonar-pro");
+    
+    case "deepseek":
+      if (!apiKeys.deepseek) throw new Error("DEEPSEEK_API_KEY not configured");
+      return makeRequest("https://api.deepseek.com/chat/completions", apiKeys.deepseek, "deepseek-chat");
+    
+    default:
+      throw new Error(`Unknown provider: ${provider}`);
+  }
+}
