@@ -215,6 +215,21 @@ function calculateMinQuotes(text: string): number {
   return Math.max(3, Math.ceil((wordCount / 600) * 3));
 }
 
+function sanitizeJSON(str: string): string {
+  // Replace smart/curly quotes with regular quotes
+  return str
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')  // Various double quotes
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")  // Various single quotes
+    .replace(/[\u2013\u2014]/g, "-")  // En-dash and em-dash to hyphen
+    .replace(/[\u2026]/g, "...")  // Ellipsis
+    .replace(/[\u00A0]/g, " ")  // Non-breaking space
+    .replace(/[\x00-\x1F\x7F]/g, (char) => {
+      // Keep newlines, tabs, carriage returns but escape other control chars
+      if (char === '\n' || char === '\r' || char === '\t') return char;
+      return '';
+    });
+}
+
 function parseJSON(content: string): AnalysisResult {
   // First, try to extract JSON from markdown code blocks
   const jsonMatch = content.match(/```json\s*\n([\s\S]*?)\n```/) || content.match(/```\s*\n([\s\S]*?)\n```/);
@@ -223,31 +238,55 @@ function parseJSON(content: string): AnalysisResult {
   // Remove any trailing/leading whitespace
   jsonString = jsonString.trim();
   
+  // Sanitize the JSON string to handle special characters
+  jsonString = sanitizeJSON(jsonString);
+  
   try {
     return JSON.parse(jsonString);
   } catch (e) {
     // If direct parsing fails, try to extract just the JSON object
     const objectMatch = jsonString.match(/\{[\s\S]*\}/);
     if (objectMatch) {
+      let cleanedJson = sanitizeJSON(objectMatch[0]);
+      
       try {
-        return JSON.parse(objectMatch[0]);
+        return JSON.parse(cleanedJson);
       } catch (e2) {
-        // Log the error for debugging
-        console.error("JSON parse error:", e2);
-        console.error("Content length:", objectMatch[0].length);
-        console.error("First 500 chars:", objectMatch[0].substring(0, 500));
-        
-        // Create a default result to prevent total failure
-        return {
-          quotes: [],
-          annotatedQuotes: [],
-          summary: "Error parsing response: " + (e2 as Error).message + ". Raw content length: " + content.length,
-          database: "",
-          analyzer: content  // Include raw content in analyzer field for debugging
-        };
+        // Try a more aggressive cleanup - remove unescaped quotes inside strings
+        // This is a last resort attempt
+        try {
+          // Find and fix broken string arrays
+          cleanedJson = cleanedJson.replace(/"\s*,\s*\n\s*"/g, '",\n"');
+          return JSON.parse(cleanedJson);
+        } catch (e3) {
+          // Log the error for debugging
+          console.error("JSON parse error:", e2);
+          console.error("Content length:", cleanedJson.length);
+          console.error("First 500 chars:", cleanedJson.substring(0, 500));
+          
+          // Return the raw content as plain text since JSON parsing failed
+          // Put it in the appropriate field based on what we can detect
+          const rawContent = objectMatch[0];
+          
+          return {
+            quotes: [],
+            annotatedQuotes: [],
+            summary: "",
+            database: rawContent,  // Put raw content in database field
+            analyzer: ""
+          };
+        }
       }
     }
-    throw new Error("Failed to extract JSON from response");
+    
+    // Last resort - return the raw content
+    return {
+      quotes: [],
+      annotatedQuotes: [],
+      summary: "",
+      database: content,  // Put raw content in database field  
+      analyzer: ""
+    };
   }
 }
 
