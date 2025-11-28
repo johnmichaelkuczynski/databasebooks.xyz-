@@ -233,20 +233,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const prompt = buildSingleTextPrompt(authorName, sourceTitle || '', text, rawFeatures);
       
-      let fullResponse = '';
       const llmResponse = await callLLM(provider || 'grok', prompt);
       
-      // Simulate streaming by chunking the response
       for (let i = 0; i < llmResponse.length; i += 100) {
         const chunk = llmResponse.slice(i, i + 100);
-        fullResponse += chunk;
         res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
         await new Promise(resolve => setTimeout(resolve, 10));
       }
 
       let llmResult;
       try {
-        const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+        const jsonMatch = llmResponse.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           llmResult = JSON.parse(jsonMatch[0]);
         } else {
@@ -287,8 +284,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           wordCount: rawFeatures.wordCount,
           verticalityScore,
           abstractionLevel: abstraction.level,
+          abstractionDescription: abstraction.description,
           rawFeatures,
-          ...llmResult
+          metaphorDensity: llmResult.metaphorDensity,
+          anecdoteFrequency: llmResult.anecdoteFrequency,
+          signaturePhrases: llmResult.signaturePhrases,
+          negativeMarkers: llmResult.negativeMarkers,
+          sampleSentences: llmResult.sampleSentences,
+          closestAuthorMatch: llmResult.closestAuthorMatch,
+          matchExplanation: llmResult.matchExplanation,
+          psychologicalProfile: llmResult.psychologicalProfile,
+          narrativeSummary: llmResult.narrativeSummary,
+          clustering: llmResult.clustering
         }
       })}\n\n`);
       res.end();
@@ -393,20 +400,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, authorName, sourceTitle, data, fullReport } = req.body;
 
-      if (!username) {
-        return res.status(400).json({ error: "Username required" });
+      if (!username || typeof username !== "string" || username.trim().length < 2) {
+        return res.status(401).json({ error: "Login required to save profiles" });
       }
 
-      if (!authorName) {
+      if (!authorName || typeof authorName !== "string" || authorName.trim().length === 0) {
         return res.status(400).json({ error: "Author name required" });
       }
 
-      let user = await storage.getUserByUsername(username);
+      const cleanUsername = username.trim().toLowerCase();
+      let user = await storage.getUserByUsername(cleanUsername);
       if (!user) {
-        user = await storage.createUser({ username });
+        user = await storage.createUser({ username: cleanUsername });
       }
 
-      const existingAuthor = await storage.getStylometricAuthorByName(user.id, authorName);
+      const existingAuthor = await storage.getStylometricAuthorByName(user.id, authorName.trim());
       
       const authorData = {
         userId: user.id,
