@@ -15,7 +15,13 @@ import {
   Download,
   Copy,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  Layers,
+  CheckSquare,
+  Square,
+  Play,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -31,10 +37,52 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { analyzeText, analyzeTextStreaming, AnalysisResult } from "@/lib/llm";
 
 type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek";
+
+interface Chunk {
+  id: number;
+  text: string;
+  wordCount: number;
+  startWord: number;
+  endWord: number;
+  selected: boolean;
+}
+
+const CHUNK_SIZE = 1000; // words per chunk
+
+function splitIntoChunks(text: string): Chunk[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const chunks: Chunk[] = [];
+  
+  for (let i = 0; i < words.length; i += CHUNK_SIZE) {
+    const chunkWords = words.slice(i, i + CHUNK_SIZE);
+    chunks.push({
+      id: chunks.length + 1,
+      text: chunkWords.join(' '),
+      wordCount: chunkWords.length,
+      startWord: i + 1,
+      endWord: Math.min(i + CHUNK_SIZE, words.length),
+      selected: true // Select all by default
+    });
+  }
+  
+  return chunks;
+}
+
+function combineResults(results: AnalysisResult[]): AnalysisResult {
+  return {
+    quotes: results.flatMap(r => r.quotes),
+    annotatedQuotes: results.flatMap(r => r.annotatedQuotes),
+    summary: results.map((r, i) => `[Chunk ${i + 1}]\n${r.summary}`).join('\n\n'),
+    database: results.map((r, i) => `═══ CHUNK ${i + 1} ═══\n${r.database}`).join('\n\n'),
+    analyzer: results.map((r, i) => `═══════════════════════════════════════\n           CHUNK ${i + 1} ANALYSIS\n═══════════════════════════════════════\n\n${r.analyzer}`).join('\n\n')
+  };
+}
 
 export default function Home() {
   const [text, setText] = useState("");
@@ -45,7 +93,78 @@ export default function Home() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [streamingOutput, setStreamingOutput] = useState("");
   
+  // Chunking state
+  const [chunks, setChunks] = useState<Chunk[]>([]);
+  const [showChunkSelector, setShowChunkSelector] = useState(false);
+  const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
+  const [totalChunksToProcess, setTotalChunksToProcess] = useState(0);
+  const [chunkResults, setChunkResults] = useState<AnalysisResult[]>([]);
+  
   const { toast } = useToast();
+  
+  // Calculate word count
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const needsChunking = wordCount > CHUNK_SIZE;
+  
+  // Update chunks when text changes
+  useEffect(() => {
+    if (needsChunking) {
+      setChunks(splitIntoChunks(text));
+      setShowChunkSelector(true);
+    } else {
+      setChunks([]);
+      setShowChunkSelector(false);
+    }
+  }, [text, needsChunking]);
+
+  // Toggle chunk selection
+  const toggleChunk = (chunkId: number) => {
+    setChunks(prev => prev.map(c => 
+      c.id === chunkId ? { ...c, selected: !c.selected } : c
+    ));
+  };
+  
+  const selectAllChunks = () => {
+    setChunks(prev => prev.map(c => ({ ...c, selected: true })));
+  };
+  
+  const deselectAllChunks = () => {
+    setChunks(prev => prev.map(c => ({ ...c, selected: false })));
+  };
+  
+  const selectedChunks = chunks.filter(c => c.selected);
+
+  // Process a single chunk and return the result
+  const processChunk = async (chunkText: string, functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer'): Promise<AnalysisResult> => {
+    return new Promise((resolve, reject) => {
+      let accumulatedOutput = "";
+      
+      analyzeTextStreaming(
+        chunkText,
+        selectedLLM,
+        functionType,
+        (chunk: string) => {
+          accumulatedOutput += chunk;
+          setStreamingOutput(accumulatedOutput);
+        },
+        () => {
+          try {
+            const parsed = JSON.parse(accumulatedOutput);
+            resolve(parsed);
+          } catch (e) {
+            // If parsing fails, try to extract what we can
+            resolve({
+              quotes: [],
+              annotatedQuotes: [],
+              summary: accumulatedOutput.substring(0, 1000),
+              database: accumulatedOutput,
+              analyzer: accumulatedOutput
+            });
+          }
+        }
+      ).catch(reject);
+    });
+  };
 
   const handleProcess = async (functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer') => {
     if (!text.trim()) {
@@ -58,38 +177,66 @@ export default function Home() {
     }
 
     setIsProcessing(true);
-    setHasResult(true); // Show streaming immediately
+    setHasResult(true);
     setStreamingOutput("");
-    let accumulatedOutput = "";
+    setChunkResults([]);
     
     try {
-      await analyzeTextStreaming(
-        text, 
-        selectedLLM, 
-        functionType,
-        (chunk: string) => {
-          accumulatedOutput += chunk;
-          setStreamingOutput(accumulatedOutput);
-        },
-        () => {
-          // Parse final JSON when streaming completes
-          try {
-            const parsed = JSON.parse(accumulatedOutput);
-            console.log("Parsed result:", parsed);
-            console.log("Analyzer field length:", parsed.analyzer?.length || 0);
-            console.log("Analyzer field preview:", parsed.analyzer?.substring(0, 100) || "(empty)");
-            setResult(parsed);
-            toast({
-              title: "Analysis Complete",
-              description: `Generated ${functionType} using ${selectedLLM.toUpperCase()}.`,
-            });
-          } catch (e) {
-            console.error("Failed to parse streaming output:", e);
-            console.error("Accumulated output length:", accumulatedOutput.length);
-            console.error("First 500 chars:", accumulatedOutput.substring(0, 500));
-          }
+      // If document needs chunking, process selected chunks sequentially
+      if (needsChunking && selectedChunks.length > 0) {
+        const chunksToProcess = selectedChunks;
+        setTotalChunksToProcess(chunksToProcess.length);
+        const results: AnalysisResult[] = [];
+        
+        for (let i = 0; i < chunksToProcess.length; i++) {
+          setCurrentChunkIndex(i + 1);
+          setStreamingOutput(`Processing chunk ${i + 1} of ${chunksToProcess.length}...\n\n`);
+          
+          toast({
+            title: `Processing Chunk ${i + 1}/${chunksToProcess.length}`,
+            description: `Words ${chunksToProcess[i].startWord}-${chunksToProcess[i].endWord}`,
+          });
+          
+          const chunkResult = await processChunk(chunksToProcess[i].text, functionType);
+          results.push(chunkResult);
+          setChunkResults([...results]);
         }
-      );
+        
+        // Combine all results
+        const combinedResult = combineResults(results);
+        setResult(combinedResult);
+        
+        toast({
+          title: "Analysis Complete",
+          description: `Processed ${chunksToProcess.length} chunks using ${selectedLLM.toUpperCase()}.`,
+        });
+      } else {
+        // Process normally for small documents
+        let accumulatedOutput = "";
+        
+        await analyzeTextStreaming(
+          text, 
+          selectedLLM, 
+          functionType,
+          (chunk: string) => {
+            accumulatedOutput += chunk;
+            setStreamingOutput(accumulatedOutput);
+          },
+          () => {
+            try {
+              const parsed = JSON.parse(accumulatedOutput);
+              console.log("Parsed result:", parsed);
+              setResult(parsed);
+              toast({
+                title: "Analysis Complete",
+                description: `Generated ${functionType} using ${selectedLLM.toUpperCase()}.`,
+              });
+            } catch (e) {
+              console.error("Failed to parse streaming output:", e);
+            }
+          }
+        );
+      }
     } catch (error: any) {
       console.error(error);
       toast({
@@ -100,6 +247,8 @@ export default function Home() {
       setHasResult(false);
     } finally {
       setIsProcessing(false);
+      setCurrentChunkIndex(0);
+      setTotalChunksToProcess(0);
     }
   };
 
@@ -330,13 +479,104 @@ ${result.analyzer}
               <div className="flex flex-col gap-4 pt-4 border-t-4 border-gray-300">
                 <div className="flex justify-between items-center">
                   <span className="text-base font-mono font-bold text-primary uppercase tracking-widest bg-blue-100 px-4 py-2 rounded-lg border-2 border-primary">
-                    {text.split(/\s+/).filter(Boolean).length} WORDS
+                    {wordCount} WORDS
                   </span>
+                  {needsChunking && (
+                    <Badge variant="secondary" className="text-sm px-3 py-1 bg-orange-100 text-orange-800 border border-orange-300">
+                      <Layers className="w-4 h-4 mr-1" />
+                      {chunks.length} Chunks
+                    </Badge>
+                  )}
                 </div>
+                
+                {/* Chunk Selector */}
+                {needsChunking && showChunkSelector && (
+                  <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-4 border-2 border-orange-200 shadow-md">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-bold text-orange-800 flex items-center gap-2">
+                        <Layers className="w-5 h-5" />
+                        Document Chunks
+                      </h4>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={selectAllChunks}
+                          className="h-7 text-xs text-orange-700 hover:text-orange-900 hover:bg-orange-100"
+                        >
+                          <CheckSquare className="w-3 h-3 mr-1" />
+                          All
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={deselectAllChunks}
+                          className="h-7 text-xs text-orange-700 hover:text-orange-900 hover:bg-orange-100"
+                        >
+                          <Square className="w-3 h-3 mr-1" />
+                          None
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                      {chunks.map((chunk) => (
+                        <div 
+                          key={chunk.id}
+                          onClick={() => toggleChunk(chunk.id)}
+                          className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-all ${
+                            chunk.selected 
+                              ? 'bg-orange-200 border-2 border-orange-400' 
+                              : 'bg-white border-2 border-gray-200 hover:border-orange-300'
+                          }`}
+                        >
+                          <Checkbox 
+                            checked={chunk.selected} 
+                            onCheckedChange={() => toggleChunk(chunk.id)}
+                            className="pointer-events-none"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-800">
+                              Chunk {chunk.id}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              Words {chunk.startWord}-{chunk.endWord} ({chunk.wordCount})
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="mt-3 pt-3 border-t border-orange-200 flex items-center justify-between text-sm">
+                      <span className="text-orange-700">
+                        {selectedChunks.length} of {chunks.length} chunks selected
+                      </span>
+                      {selectedChunks.length === 0 && (
+                        <span className="text-red-600 text-xs">Select at least one chunk</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Processing Progress */}
+                {isProcessing && totalChunksToProcess > 0 && (
+                  <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-blue-800">
+                        Processing Chunk {currentChunkIndex} of {totalChunksToProcess}
+                      </span>
+                      <span className="text-sm text-blue-600">
+                        {Math.round((currentChunkIndex / totalChunksToProcess) * 100)}%
+                      </span>
+                    </div>
+                    <Progress value={(currentChunkIndex / totalChunksToProcess) * 100} className="h-2" />
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-2 gap-3">
                   <Button 
                     onClick={() => handleProcess('quotes')} 
-                    disabled={isProcessing || !text}
+                    disabled={isProcessing || !text || (needsChunking && selectedChunks.length === 0)}
                     className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-primary to-secondary text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-quotes"
                   >
@@ -345,7 +585,7 @@ ${result.analyzer}
                   </Button>
                   <Button 
                     onClick={() => handleProcess('context')} 
-                    disabled={isProcessing || !text}
+                    disabled={isProcessing || !text || (needsChunking && selectedChunks.length === 0)}
                     className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-secondary to-accent text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-context"
                   >
@@ -354,7 +594,7 @@ ${result.analyzer}
                   </Button>
                   <Button 
                     onClick={() => handleProcess('rewrite')} 
-                    disabled={isProcessing || !text}
+                    disabled={isProcessing || !text || (needsChunking && selectedChunks.length === 0)}
                     className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-accent to-primary text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-rewrite"
                   >
@@ -363,7 +603,7 @@ ${result.analyzer}
                   </Button>
                   <Button 
                     onClick={() => handleProcess('database')} 
-                    disabled={isProcessing || !text}
+                    disabled={isProcessing || !text || (needsChunking && selectedChunks.length === 0)}
                     className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-primary via-secondary to-accent text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-database"
                   >
@@ -372,7 +612,7 @@ ${result.analyzer}
                   </Button>
                   <Button 
                     onClick={() => handleProcess('analyzer')} 
-                    disabled={isProcessing || !text}
+                    disabled={isProcessing || !text || (needsChunking && selectedChunks.length === 0)}
                     className="col-span-2 h-12 text-sm font-semibold px-5 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-analyzer"
                   >
