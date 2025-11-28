@@ -21,12 +21,22 @@ import {
   Square,
   Play,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  User,
+  LogIn,
+  LogOut,
+  BarChart3,
+  BookOpen,
+  Save,
+  X,
+  GitCompare
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -40,6 +50,14 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { analyzeText, analyzeTextStreaming, AnalysisResult } from "@/lib/llm";
 
 type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek";
@@ -53,7 +71,17 @@ interface Chunk {
   selected: boolean;
 }
 
-const CHUNK_SIZE = 1000; // words per chunk
+interface StylometricAuthor {
+  id: number;
+  authorName: string;
+  sourceTitle?: string;
+  wordCount?: number;
+  verticalityScore?: string;
+  rawFeatures?: any;
+  fullReport?: string;
+}
+
+const CHUNK_SIZE = 1000;
 
 function splitIntoChunks(text: string): Chunk[] {
   const words = text.split(/\s+/).filter(Boolean);
@@ -67,7 +95,7 @@ function splitIntoChunks(text: string): Chunk[] {
       wordCount: chunkWords.length,
       startWord: i + 1,
       endWord: Math.min(i + CHUNK_SIZE, words.length),
-      selected: true // Select all by default
+      selected: true
     });
   }
   
@@ -93,20 +121,42 @@ export default function Home() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [streamingOutput, setStreamingOutput] = useState("");
   
-  // Chunking state
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [showChunkSelector, setShowChunkSelector] = useState(false);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
   const [totalChunksToProcess, setTotalChunksToProcess] = useState(0);
   const [chunkResults, setChunkResults] = useState<AnalysisResult[]>([]);
   
+  const [username, setUsername] = useState<string | null>(null);
+  const [loginInput, setLoginInput] = useState("");
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
+  const [showStylometricsDialog, setShowStylometricsDialog] = useState(false);
+  const [stylometricsTab, setStylometricsTab] = useState<"single" | "compare">("single");
+  const [stylometricsAuthorName, setStylometricsAuthorName] = useState("");
+  const [stylometricsSourceTitle, setStylometricsSourceTitle] = useState("");
+  const [stylometricsText, setStylometricsText] = useState("");
+  const [stylometricsTextB, setStylometricsTextB] = useState("");
+  const [stylometricsAuthorNameB, setStylometricsAuthorNameB] = useState("");
+  const [stylometricsReport, setStylometricsReport] = useState("");
+  const [stylometricsData, setStylometricsData] = useState<any>(null);
+  const [isAnalyzingStylometrics, setIsAnalyzingStylometrics] = useState(false);
+  const [savedAuthors, setSavedAuthors] = useState<StylometricAuthor[]>([]);
+  
   const { toast } = useToast();
   
-  // Calculate word count
   const wordCount = text.split(/\s+/).filter(Boolean).length;
   const needsChunking = wordCount > CHUNK_SIZE;
   
-  // Update chunks when text changes
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('tis_username');
+    if (savedUsername) {
+      setUsername(savedUsername);
+      loadSavedAuthors(savedUsername);
+    }
+  }, []);
+  
   useEffect(() => {
     if (needsChunking) {
       setChunks(splitIntoChunks(text));
@@ -117,7 +167,68 @@ export default function Home() {
     }
   }, [text, needsChunking]);
 
-  // Toggle chunk selection
+  const loadSavedAuthors = async (user: string) => {
+    try {
+      const response = await fetch(`/api/stylometrics/authors?username=${encodeURIComponent(user)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSavedAuthors(data.authors || []);
+      }
+    } catch (error) {
+      console.error("Failed to load authors:", error);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!loginInput.trim() || loginInput.trim().length < 2) {
+      toast({
+        title: "Invalid username",
+        description: "Username must be at least 2 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsLoggingIn(true);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: loginInput.trim() })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUsername(data.user.username);
+        localStorage.setItem('tis_username', data.user.username);
+        setShowLoginDialog(false);
+        setLoginInput("");
+        loadSavedAuthors(data.user.username);
+        toast({
+          title: "Welcome!",
+          description: `Logged in as ${data.user.username}`,
+        });
+      } else {
+        throw new Error("Login failed");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setUsername(null);
+    localStorage.removeItem('tis_username');
+    setSavedAuthors([]);
+    toast({ description: "Logged out successfully" });
+  };
+
   const toggleChunk = (chunkId: number) => {
     setChunks(prev => prev.map(c => 
       c.id === chunkId ? { ...c, selected: !c.selected } : c
@@ -134,7 +245,6 @@ export default function Home() {
   
   const selectedChunks = chunks.filter(c => c.selected);
 
-  // Process a single chunk and return the result
   const processChunk = async (chunkText: string, functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer'): Promise<AnalysisResult> => {
     return new Promise((resolve, reject) => {
       let accumulatedOutput = "";
@@ -152,7 +262,6 @@ export default function Home() {
             const parsed = JSON.parse(accumulatedOutput);
             resolve(parsed);
           } catch (e) {
-            // If parsing fails, try to extract what we can
             resolve({
               quotes: [],
               annotatedQuotes: [],
@@ -182,7 +291,6 @@ export default function Home() {
     setChunkResults([]);
     
     try {
-      // If document needs chunking, process selected chunks sequentially
       if (needsChunking && selectedChunks.length > 0) {
         const chunksToProcess = selectedChunks;
         setTotalChunksToProcess(chunksToProcess.length);
@@ -202,7 +310,6 @@ export default function Home() {
           setChunkResults([...results]);
         }
         
-        // Combine all results
         const combinedResult = combineResults(results);
         setResult(combinedResult);
         
@@ -211,7 +318,6 @@ export default function Home() {
           description: `Processed ${chunksToProcess.length} chunks using ${selectedLLM.toUpperCase()}.`,
         });
       } else {
-        // Process normally for small documents
         let accumulatedOutput = "";
         
         await analyzeTextStreaming(
@@ -249,6 +355,179 @@ export default function Home() {
       setIsProcessing(false);
       setCurrentChunkIndex(0);
       setTotalChunksToProcess(0);
+    }
+  };
+
+  const handleStylometricsAnalyze = async () => {
+    const textToAnalyze = stylometricsTab === "single" ? (stylometricsText || text) : stylometricsText;
+    const authorName = stylometricsTab === "single" ? stylometricsAuthorName : stylometricsAuthorName;
+    
+    if (!textToAnalyze.trim()) {
+      toast({
+        title: "Text required",
+        description: "Please enter text to analyze",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!authorName.trim()) {
+      toast({
+        title: "Author name required",
+        description: "Please enter an author name or label",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const wordCount = textToAnalyze.split(/\s+/).filter(Boolean).length;
+    if (wordCount < 400) {
+      toast({
+        title: "Text too short",
+        description: `Need at least 400 words. Current: ${wordCount} words.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsAnalyzingStylometrics(true);
+    setStylometricsReport("");
+    setStylometricsData(null);
+    
+    try {
+      if (stylometricsTab === "single") {
+        const response = await fetch('/api/stylometrics/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username,
+            authorName: stylometricsAuthorName,
+            sourceTitle: stylometricsSourceTitle,
+            text: textToAnalyze,
+            provider: selectedLLM
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Analysis failed");
+        }
+        
+        const data = await response.json();
+        setStylometricsReport(data.report);
+        setStylometricsData(data.data);
+        
+        toast({
+          title: "Analysis Complete",
+          description: `Verticality Score: ${data.data.verticalityScore?.toFixed(2) || 'N/A'}`,
+        });
+      } else {
+        if (!stylometricsTextB.trim() || !stylometricsAuthorNameB.trim()) {
+          toast({
+            title: "Missing Text B",
+            description: "Please provide both texts for comparison",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const wordCountB = stylometricsTextB.split(/\s+/).filter(Boolean).length;
+        if (wordCountB < 400) {
+          toast({
+            title: "Text B too short",
+            description: `Need at least 400 words. Current: ${wordCountB} words.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const response = await fetch('/api/stylometrics/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username,
+            textA: { text: stylometricsText, authorName: stylometricsAuthorName },
+            textB: { text: stylometricsTextB, authorName: stylometricsAuthorNameB },
+            provider: selectedLLM
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Comparison failed");
+        }
+        
+        const data = await response.json();
+        setStylometricsReport(data.report);
+        setStylometricsData(data.data);
+        
+        toast({
+          title: "Comparison Complete",
+          description: `Verticality difference: ${data.data.comparison?.verticalityDifference?.toFixed(2) || 'N/A'}`,
+        });
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        title: "Analysis Failed",
+        description: error.message || "Unknown error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzingStylometrics(false);
+    }
+  };
+
+  const handleSaveStylometricProfile = async () => {
+    if (!username) {
+      toast({
+        title: "Login required",
+        description: "Please log in to save profiles",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!stylometricsData || !stylometricsAuthorName) {
+      toast({
+        title: "No data to save",
+        description: "Run an analysis first",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/stylometrics/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          authorName: stylometricsAuthorName,
+          sourceTitle: stylometricsSourceTitle,
+          data: stylometricsData,
+          fullReport: stylometricsReport
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Save failed");
+      }
+      
+      const data = await response.json();
+      toast({
+        title: data.message,
+        description: `Saved profile for ${stylometricsAuthorName}`,
+      });
+      
+      loadSavedAuthors(username);
+    } catch (error: any) {
+      toast({
+        title: "Save Failed",
+        description: error.message || "Unknown error",
+        variant: "destructive",
+      });
     }
   };
 
@@ -317,7 +596,6 @@ ${result.analyzer}
   const handleFileUpload = (file: File) => {
     if (!file) return;
     
-    // Accept any text-based file
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
@@ -356,9 +634,15 @@ ${result.analyzer}
     }
   };
 
+  const openStylometricsWithText = () => {
+    if (text.trim()) {
+      setStylometricsText(text);
+    }
+    setShowStylometricsDialog(true);
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-white">
-      {/* Header */}
       <header className="border-b-4 border-primary sticky top-0 z-50 bg-white shadow-lg">
         <div className="w-full px-10 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -385,6 +669,70 @@ ${result.analyzer}
                 </SelectContent>
               </Select>
             </div>
+            
+            {username ? (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-sm px-3 py-1.5 bg-green-100 text-green-800 border border-green-300">
+                  <User className="w-4 h-4 mr-1" />
+                  {username}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="h-8 text-muted-foreground hover:text-destructive"
+                  data-testid="button-logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 text-sm gap-2 border-2 border-primary text-primary hover:bg-primary hover:text-white"
+                    data-testid="button-login"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    Login
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <User className="w-5 h-5 text-primary" />
+                      Login to Text Intelligence Studio
+                    </DialogTitle>
+                    <DialogDescription>
+                      Enter a username to save your stylometric profiles and analysis history.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="username">Username</Label>
+                      <Input
+                        id="username"
+                        placeholder="Enter your username"
+                        value={loginInput}
+                        onChange={(e) => setLoginInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                        data-testid="input-username"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleLogin}
+                      disabled={isLoggingIn}
+                      className="w-full"
+                      data-testid="button-submit-login"
+                    >
+                      {isLoggingIn ? "Logging in..." : "Continue"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
       </header>
@@ -392,7 +740,6 @@ ${result.analyzer}
       <main className="w-full px-10 py-6">
         <ResizablePanelGroup direction="horizontal" className="gap-8" style={{minHeight: 'calc(100vh - 6rem)'}}>
           <ResizablePanel defaultSize={50} minSize={30}>
-          {/* Input Section */}
           <section className="flex flex-col gap-4 h-full">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-primary flex items-center gap-2.5 uppercase tracking-wide">
@@ -446,7 +793,6 @@ ${result.analyzer}
                 data-testid="input-text"
               />
               
-              {/* Empty State / Dropzone Hint */}
               {!text && (
                 <div className={`absolute inset-0 pointer-events-none flex items-center justify-center transition-opacity duration-200 ${isDragging ? 'opacity-80' : 'opacity-20'}`}>
                   <div className="flex flex-col items-center gap-4">
@@ -466,7 +812,6 @@ ${result.analyzer}
                 </div>
               )}
               
-              {/* Overlay for Drag State when text exists */}
               {text && isDragging && (
                 <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-10 border-2 border-dashed border-primary m-2 rounded-lg">
                   <div className="flex flex-col items-center gap-4 text-primary">
@@ -489,7 +834,6 @@ ${result.analyzer}
                   )}
                 </div>
                 
-                {/* Chunk Selector */}
                 {needsChunking && showChunkSelector && (
                   <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-4 border-2 border-orange-200 shadow-md">
                     <div className="flex items-center justify-between mb-3">
@@ -558,7 +902,6 @@ ${result.analyzer}
                   </div>
                 )}
                 
-                {/* Processing Progress */}
                 {isProcessing && totalChunksToProcess > 0 && (
                   <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
                     <div className="flex items-center justify-between mb-2">
@@ -613,11 +956,20 @@ ${result.analyzer}
                   <Button 
                     onClick={() => handleProcess('analyzer')} 
                     disabled={isProcessing || !text || (needsChunking && selectedChunks.length === 0)}
-                    className="col-span-2 h-12 text-sm font-semibold px-5 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 text-white hover:shadow-lg transition-all hover:scale-105"
+                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-lg transition-all hover:scale-105"
                     data-testid="button-analyzer"
                   >
                     <Sparkles className="w-5 h-5 mr-2" />
-                    TEXT ANALYZER
+                    ANALYZER
+                  </Button>
+                  <Button 
+                    onClick={openStylometricsWithText}
+                    disabled={isProcessing}
+                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:shadow-lg transition-all hover:scale-105"
+                    data-testid="button-stylometrics"
+                  >
+                    <BarChart3 className="w-5 h-5 mr-2" />
+                    STYLOMETRICS
                   </Button>
                 </div>
               </div>
@@ -628,7 +980,6 @@ ${result.analyzer}
           <ResizableHandle withHandle className="mx-4" />
           
           <ResizablePanel defaultSize={50} minSize={30}>
-          {/* Output Section */}
           <section className="flex flex-col gap-4 h-full">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-secondary flex items-center gap-2.5 uppercase tracking-wide">
@@ -808,6 +1159,233 @@ ${result.analyzer}
           </ResizablePanel>
         </ResizablePanelGroup>
       </main>
+
+      <Dialog open={showStylometricsDialog} onOpenChange={setShowStylometricsDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <BarChart3 className="w-6 h-6 text-indigo-600" />
+              Stylometric Analysis
+            </DialogTitle>
+            <DialogDescription>
+              Analyze writing style, verticality, and psychological profile of text samples.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Tabs value={stylometricsTab} onValueChange={(v) => setStylometricsTab(v as "single" | "compare")} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="single" className="gap-2">
+                <BookOpen className="w-4 h-4" />
+                Single Text
+              </TabsTrigger>
+              <TabsTrigger value="compare" className="gap-2">
+                <GitCompare className="w-4 h-4" />
+                Compare Texts
+              </TabsTrigger>
+            </TabsList>
+            
+            <div className="flex-1 overflow-y-auto mt-4">
+              <TabsContent value="single" className="mt-0 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="author-name">Author Name / Label *</Label>
+                    <Input
+                      id="author-name"
+                      placeholder="e.g., John Smith"
+                      value={stylometricsAuthorName}
+                      onChange={(e) => setStylometricsAuthorName(e.target.value)}
+                      data-testid="input-author-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="source-title">Source Title (optional)</Label>
+                    <Input
+                      id="source-title"
+                      placeholder="e.g., Essay on Knowledge"
+                      value={stylometricsSourceTitle}
+                      onChange={(e) => setStylometricsSourceTitle(e.target.value)}
+                      data-testid="input-source-title"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="stylometrics-text">Text Sample (min. 400 words) *</Label>
+                    <span className="text-sm text-muted-foreground">
+                      {stylometricsText.split(/\s+/).filter(Boolean).length} words
+                    </span>
+                  </div>
+                  <Textarea
+                    id="stylometrics-text"
+                    placeholder="Paste text here for stylometric analysis..."
+                    value={stylometricsText}
+                    onChange={(e) => setStylometricsText(e.target.value)}
+                    className="min-h-[200px] font-serif"
+                    data-testid="textarea-stylometrics"
+                  />
+                </div>
+                
+                {stylometricsReport && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Analysis Results</Label>
+                      <div className="flex gap-2">
+                        {username && stylometricsData && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleSaveStylometricProfile}
+                            className="gap-1"
+                            data-testid="button-save-profile"
+                          >
+                            <Save className="w-4 h-4" />
+                            Save to Database
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(stylometricsReport);
+                            toast({ description: "Report copied to clipboard" });
+                          }}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <ScrollArea className="h-[300px] border rounded-lg p-4 bg-gradient-to-br from-indigo-50 to-violet-50">
+                      <pre className="font-sans text-sm whitespace-pre-wrap">{stylometricsReport}</pre>
+                    </ScrollArea>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="compare" className="mt-0 space-y-4">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-blue-800">Text A</h4>
+                    <div className="space-y-2">
+                      <Label>Author Name *</Label>
+                      <Input
+                        placeholder="Author A"
+                        value={stylometricsAuthorName}
+                        onChange={(e) => setStylometricsAuthorName(e.target.value)}
+                        data-testid="input-author-a"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Text *</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {stylometricsText.split(/\s+/).filter(Boolean).length} words
+                        </span>
+                      </div>
+                      <Textarea
+                        placeholder="Paste Text A..."
+                        value={stylometricsText}
+                        onChange={(e) => setStylometricsText(e.target.value)}
+                        className="min-h-[150px] font-serif text-sm"
+                        data-testid="textarea-text-a"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <h4 className="font-semibold text-purple-800">Text B</h4>
+                    <div className="space-y-2">
+                      <Label>Author Name *</Label>
+                      <Input
+                        placeholder="Author B"
+                        value={stylometricsAuthorNameB}
+                        onChange={(e) => setStylometricsAuthorNameB(e.target.value)}
+                        data-testid="input-author-b"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Text *</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {stylometricsTextB.split(/\s+/).filter(Boolean).length} words
+                        </span>
+                      </div>
+                      <Textarea
+                        placeholder="Paste Text B..."
+                        value={stylometricsTextB}
+                        onChange={(e) => setStylometricsTextB(e.target.value)}
+                        className="min-h-[150px] font-serif text-sm"
+                        data-testid="textarea-text-b"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {stylometricsReport && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Comparison Results</Label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(stylometricsReport);
+                          toast({ description: "Report copied to clipboard" });
+                        }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <ScrollArea className="h-[250px] border rounded-lg p-4 bg-gradient-to-br from-indigo-50 to-violet-50">
+                      <pre className="font-sans text-sm whitespace-pre-wrap">{stylometricsReport}</pre>
+                    </ScrollArea>
+                  </div>
+                )}
+              </TabsContent>
+            </div>
+          </Tabs>
+          
+          <div className="flex justify-between items-center pt-4 border-t mt-4">
+            <div className="text-sm text-muted-foreground">
+              Using: <span className="font-semibold uppercase">{selectedLLM}</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStylometricsReport("");
+                  setStylometricsData(null);
+                  setStylometricsText("");
+                  setStylometricsTextB("");
+                  setStylometricsAuthorName("");
+                  setStylometricsAuthorNameB("");
+                  setStylometricsSourceTitle("");
+                }}
+              >
+                Clear
+              </Button>
+              <Button
+                onClick={handleStylometricsAnalyze}
+                disabled={isAnalyzingStylometrics}
+                className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white"
+                data-testid="button-analyze-stylometrics"
+              >
+                {isAnalyzingStylometrics ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    {stylometricsTab === "single" ? "Analyze" : "Compare"}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
