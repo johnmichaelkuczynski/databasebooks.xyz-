@@ -8,29 +8,47 @@ export type AnalysisResult = {
 
 function getSystemPrompt(functionType: string, minQuotes: number): string {
   const prompts = {
-    quotes: `Extract the best quotations from the text.
+    quotes: `Extract THE MOST INTELLIGENT AND PROFOUND QUOTATIONS from the text.
 
 ⚠️ CRITICAL REQUIREMENT: You MUST extract AT LEAST ${minQuotes} quotes. This is a MINIMUM, not a target.
 ⚠️ For longer texts, extract MORE quotes than the minimum. The minimum is based on 3 quotes per 600 words.
 ⚠️ DO NOT stop after a few quotes - continue extracting until you have provided at least ${minQuotes} high-quality quotations.
 
-Select quotations that are:
-- Philosophically or intellectually significant
-- Representative of key ideas and arguments
-- Varied across different sections of the text
-- Complete enough to be meaningful on their own
+INTELLIGENCE CRITERIA - Prioritize quotes that demonstrate:
+1. CONCEPTUAL DEPTH: Complex ideas, nuanced distinctions, or sophisticated reasoning
+2. ORIGINALITY: Novel insights, unique perspectives, or paradigm-shifting claims
+3. PHILOSOPHICAL WEIGHT: Statements that grapple with fundamental questions of truth, existence, knowledge, ethics, or meaning
+4. ARGUMENTATIVE POWER: Compelling logical moves, devastating critiques, or synthesis of opposing views
+5. EPISTEMIC SIGNIFICANCE: Claims about how we know, what we can know, or the limits of understanding
+6. THEORETICAL INNOVATION: New frameworks, reconceptualizations, or challenge to conventional thinking
+7. APHORISTIC BRILLIANCE: Dense, memorable formulations that pack maximum insight into minimal words
+8. COUNTERINTUITIVE TRUTH: Insights that challenge common assumptions yet prove illuminating
+
+AVOID: Mundane observations, simple factual statements, transitional sentences, rhetorical filler, or obvious claims.
+
+SEEK: The passages a careful reader would underline, the sentences worth memorizing, the ideas that change how one thinks.
 
 Output valid JSON: {"quotes": ["quote 1", "quote 2", ...], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": ""}`,
     
-    context: `Extract the best quotations with one-line contextual commentary.
+    context: `Extract THE MOST INTELLIGENT AND PROFOUND QUOTATIONS with scholarly contextual commentary.
 
 ⚠️ CRITICAL REQUIREMENT: You MUST extract AT LEAST ${minQuotes} quotes. This is a MINIMUM, not a target.
 ⚠️ For longer texts, extract MORE quotes than the minimum. The minimum is based on 3 quotes per 600 words.
 ⚠️ DO NOT stop after a few quotes - continue extracting until you have provided at least ${minQuotes} annotated quotations.
 
+INTELLIGENCE CRITERIA - Prioritize quotes that demonstrate:
+1. CONCEPTUAL DEPTH: Complex ideas, nuanced distinctions, or sophisticated reasoning
+2. ORIGINALITY: Novel insights, unique perspectives, or paradigm-shifting claims
+3. PHILOSOPHICAL WEIGHT: Statements that grapple with fundamental questions
+4. ARGUMENTATIVE POWER: Compelling logical moves or devastating critiques
+5. APHORISTIC BRILLIANCE: Dense, memorable formulations with maximum insight
+6. COUNTERINTUITIVE TRUTH: Insights that challenge assumptions yet prove illuminating
+
 For each quote, provide:
-1. The exact quotation
-2. A one-line contextual commentary explaining its significance
+1. The exact quotation (most intellectually significant passage)
+2. A one-line contextual commentary explaining WHY this quote is intellectually significant - what insight it offers, what problem it addresses, or what conceptual work it performs
+
+AVOID: Mundane observations, simple factual statements, transitional sentences, or obvious claims.
 
 Output valid JSON: {"quotes": [], "annotatedQuotes": [{"quote": "...", "context": "..."}, ...], "summary": "", "database": "", "analyzer": ""}`,
     
