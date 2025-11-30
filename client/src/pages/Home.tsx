@@ -529,6 +529,16 @@ export default function Home() {
                 console.error("Failed to save chunk result:", saveError);
               }
             }
+            
+            // Wait 20 seconds between chunks to prevent API rate limiting (except after last chunk)
+            if (i < chunksToProcess.length - 1) {
+              const DELAY_SECONDS = 20;
+              for (let countdown = DELAY_SECONDS; countdown > 0; countdown--) {
+                const waitDisplay = updatedDisplay + `\n\n---\n⏳ **Waiting ${countdown} seconds before next chunk to prevent rate limiting...**`;
+                setStreamingOutput(waitDisplay);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            }
           } catch (chunkError: any) {
             failedChunkIndex = i + 1;
             failureError = chunkError.message || "Unknown error";
