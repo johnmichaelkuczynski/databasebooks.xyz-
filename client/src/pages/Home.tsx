@@ -245,23 +245,33 @@ export default function Home() {
     }
   }, []);
   
+  // Update chunks when text changes, preserving processed state
   useEffect(() => {
     if (needsChunking) {
-      // Generate new chunks but preserve processed state
       const newChunks = splitIntoChunks(text);
-      setChunks(newChunks.map(c => ({
-        ...c,
-        processed: processedChunkIds.has(c.id)
-      })));
+      setChunks(prevChunks => {
+        // Build a lookup of previous processed state
+        const prevProcessed = new Set(prevChunks.filter(c => c.processed).map(c => c.id));
+        return newChunks.map(c => ({
+          ...c,
+          processed: processedChunkIds.has(c.id) || prevProcessed.has(c.id)
+        }));
+      });
       setShowChunkSelector(true);
     } else {
       setChunks([]);
       setShowChunkSelector(false);
-      // Clear processed state when text is small enough to not need chunking
+    }
+  }, [text, needsChunking]);
+  
+  // Separate effect to clear processed state when text changes significantly
+  useEffect(() => {
+    // Only clear when text becomes small enough to not need chunking
+    if (!needsChunking && processedChunkIds.size > 0) {
       setProcessedChunkIds(new Set());
       setLastFailedChunkIndex(null);
     }
-  }, [text, needsChunking, processedChunkIds]);
+  }, [needsChunking]);
 
   const loadSavedAuthors = async (user: string) => {
     try {
