@@ -10,7 +10,7 @@ import {
   analysisHistory
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -26,6 +26,9 @@ export interface IStorage {
   
   createAnalysisHistory(history: InsertAnalysisHistory): Promise<AnalysisHistory>;
   getAnalysisHistory(userId: number): Promise<AnalysisHistory[]>;
+  getAnalysisHistoryByType(userId: number, analysisType: string): Promise<AnalysisHistory[]>;
+  getAnalysisHistoryItem(id: number): Promise<AnalysisHistory | undefined>;
+  deleteAnalysisHistoryItem(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -87,7 +90,30 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getAnalysisHistory(userId: number): Promise<AnalysisHistory[]> {
-    return await db.select().from(analysisHistory).where(eq(analysisHistory.userId, userId));
+    return await db.select()
+      .from(analysisHistory)
+      .where(eq(analysisHistory.userId, userId))
+      .orderBy(desc(analysisHistory.createdAt));
+  }
+  
+  async getAnalysisHistoryByType(userId: number, analysisType: string): Promise<AnalysisHistory[]> {
+    return await db.select()
+      .from(analysisHistory)
+      .where(and(
+        eq(analysisHistory.userId, userId),
+        eq(analysisHistory.analysisType, analysisType)
+      ))
+      .orderBy(desc(analysisHistory.createdAt));
+  }
+  
+  async getAnalysisHistoryItem(id: number): Promise<AnalysisHistory | undefined> {
+    const [item] = await db.select().from(analysisHistory).where(eq(analysisHistory.id, id));
+    return item;
+  }
+  
+  async deleteAnalysisHistoryItem(id: number): Promise<boolean> {
+    await db.delete(analysisHistory).where(eq(analysisHistory.id, id));
+    return true;
   }
 }
 
