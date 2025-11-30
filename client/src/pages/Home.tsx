@@ -1592,22 +1592,32 @@ ${result.analyzer}
                         const data = selectedHistoryItem.outputData;
                         if (!data) return "No output data";
                         
+                        // Handle structured quote extraction
                         if (selectedHistoryItem.analysisType === "quotes" && data.quotes) {
                           return data.quotes.map((q: string, i: number) => `${i + 1}. "${q}"`).join('\n\n');
                         }
+                        // Handle annotated quotes
                         if (selectedHistoryItem.analysisType === "context" && data.annotatedQuotes) {
                           return data.annotatedQuotes.map((q: any, i: number) => 
                             `${i + 1}. "${q.quote}"\n   → ${q.context}`
                           ).join('\n\n');
                         }
+                        // Handle compression/rewrite
                         if (selectedHistoryItem.analysisType === "rewrite" && data.summary) {
                           return data.summary;
                         }
+                        // Handle database output
                         if (selectedHistoryItem.analysisType === "database" && data.database) {
                           return data.database;
                         }
+                        // Handle analyzer output
                         if (selectedHistoryItem.analysisType === "analyzer" && data.analyzer) {
                           return data.analyzer;
+                        }
+                        
+                        // Fallback for rawContent (from streaming when JSON parse fails)
+                        if (data.rawContent) {
+                          return data.rawContent;
                         }
                         
                         return JSON.stringify(data, null, 2);

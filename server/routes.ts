@@ -116,12 +116,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const inputPreview = text.substring(0, 200) + (text.length > 200 ? "..." : "");
           
-          // Try to parse the accumulated content as JSON for structured storage
-          let outputData;
+          // Structure the output data based on function type
+          let outputData: any;
           try {
             outputData = JSON.parse(fullContent);
           } catch {
-            outputData = { rawContent: fullContent };
+            // For text-based outputs, structure them properly based on type
+            if (functionType === "analyzer") {
+              outputData = { analyzer: fullContent };
+            } else if (functionType === "database") {
+              outputData = { database: fullContent };
+            } else if (functionType === "rewrite") {
+              outputData = { summary: fullContent };
+            } else {
+              outputData = { rawContent: fullContent };
+            }
           }
           
           await storage.createAnalysisHistory({
