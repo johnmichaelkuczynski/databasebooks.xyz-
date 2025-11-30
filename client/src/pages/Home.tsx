@@ -72,6 +72,7 @@ interface Chunk {
   startWord: number;
   endWord: number;
   selected: boolean;
+  processed?: boolean;  // Track if this chunk has been successfully processed
 }
 
 interface StylometricAuthor {
@@ -204,6 +205,9 @@ export default function Home() {
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
   const [totalChunksToProcess, setTotalChunksToProcess] = useState(0);
   const [chunkResults, setChunkResults] = useState<AnalysisResult[]>([]);
+  const [lastFailedChunkIndex, setLastFailedChunkIndex] = useState<number | null>(null);
+  const [lastFunctionType, setLastFunctionType] = useState<string | null>(null);
+  const [processedChunkIds, setProcessedChunkIds] = useState<Set<number>>(new Set());
   
   const [username, setUsername] = useState<string | null>(null);
   const [loginInput, setLoginInput] = useState("");
@@ -243,13 +247,21 @@ export default function Home() {
   
   useEffect(() => {
     if (needsChunking) {
-      setChunks(splitIntoChunks(text));
+      // Generate new chunks but preserve processed state
+      const newChunks = splitIntoChunks(text);
+      setChunks(newChunks.map(c => ({
+        ...c,
+        processed: processedChunkIds.has(c.id)
+      })));
       setShowChunkSelector(true);
     } else {
       setChunks([]);
       setShowChunkSelector(false);
+      // Clear processed state when text is small enough to not need chunking
+      setProcessedChunkIds(new Set());
+      setLastFailedChunkIndex(null);
     }
-  }, [text, needsChunking]);
+  }, [text, needsChunking, processedChunkIds]);
 
   const loadSavedAuthors = async (user: string) => {
     try {
@@ -438,6 +450,8 @@ export default function Home() {
     setHasResult(true);
     setStreamingOutput("");
     setChunkResults([]);
+    setLastFailedChunkIndex(null);
+    setLastFunctionType(functionType);
     
     try {
       if (needsChunking && selectedChunks.length > 0) {
@@ -446,6 +460,7 @@ export default function Home() {
         const results: AnalysisResult[] = [];
         let failedChunkIndex = -1;
         let failureError = "";
+        const completedChunkIds: number[] = [];
         
         for (let i = 0; i < chunksToProcess.length; i++) {
           setCurrentChunkIndex(i + 1);
@@ -462,7 +477,18 @@ export default function Home() {
           try {
             const chunkResult = await processChunk(chunksToProcess[i].text, functionType);
             results.push(chunkResult);
+            completedChunkIds.push(chunksToProcess[i].id);
             setChunkResults([...results]);
+            
+            // Mark this chunk as processed (in both the chunk object and the persistent set)
+            setChunks(prev => prev.map(c => 
+              c.id === chunksToProcess[i].id ? { ...c, processed: true } : c
+            ));
+            setProcessedChunkIds(prev => {
+              const newSet = new Set(Array.from(prev));
+              newSet.add(chunksToProcess[i].id);
+              return newSet;
+            });
             
             // Update display with new result immediately
             const updatedDisplay = buildAccumulatedDisplay(results, functionType, i + 1, chunksToProcess.length, true);
@@ -471,41 +497,39 @@ export default function Home() {
             // Combine and set result after each chunk so it's always available
             const combinedSoFar = combineResults(results);
             setResult(combinedSoFar);
+            
+            // SAVE IMMEDIATELY after each chunk completes (not just at the end)
+            if (username) {
+              try {
+                const inputPreview = text.substring(0, 200) + (text.length > 200 ? "..." : "");
+                await fetch('/api/history/save-partial', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    username,
+                    analysisType: functionType,
+                    provider: selectedLLM,
+                    inputPreview,
+                    outputData: combinedSoFar,
+                    chunksCompleted: results.length,
+                    totalChunks: chunksToProcess.length
+                  })
+                });
+              } catch (saveError) {
+                console.error("Failed to save chunk result:", saveError);
+              }
+            }
           } catch (chunkError: any) {
             failedChunkIndex = i + 1;
             failureError = chunkError.message || "Unknown error";
             console.error(`Chunk ${i + 1} failed:`, chunkError);
+            setLastFailedChunkIndex(chunksToProcess[i].id);
             break; // Stop processing but keep what we have
           }
         }
         
-        // If we have any results, combine and save them
+        // Show completion message
         if (results.length > 0) {
-          const combinedResult = combineResults(results);
-          setResult(combinedResult);
-          
-          // Save partial results to history if logged in
-          if (username && results.length > 0) {
-            try {
-              const inputPreview = text.substring(0, 200) + (text.length > 200 ? "..." : "");
-              await fetch('/api/history/save-partial', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  username,
-                  analysisType: functionType,
-                  provider: selectedLLM,
-                  inputPreview,
-                  outputData: combinedResult,
-                  chunksCompleted: results.length,
-                  totalChunks: chunksToProcess.length
-                })
-              });
-            } catch (saveError) {
-              console.error("Failed to save partial results:", saveError);
-            }
-          }
-          
           if (failedChunkIndex > 0) {
             toast({
               title: `Partial Results Saved`,
@@ -517,6 +541,7 @@ export default function Home() {
             const finalDisplay = buildAccumulatedDisplay(results, functionType, failedChunkIndex, chunksToProcess.length, true, failureError);
             setStreamingOutput(finalDisplay);
           } else {
+            // All chunks processed successfully
             toast({
               title: "Analysis Complete",
               description: `Processed ${chunksToProcess.length} chunks using ${selectedLLM.toUpperCase()}.`,
@@ -1083,6 +1108,24 @@ ${result.analyzer}
                           <Square className="w-3 h-3 mr-1" />
                           None
                         </Button>
+                        {chunks.some(c => c.processed) && (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={() => {
+                              // Select all unprocessed chunks (including failed one)
+                              setChunks(prev => prev.map(c => ({ 
+                                ...c, 
+                                selected: !c.processed  // Select if NOT processed
+                              })));
+                            }}
+                            className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+                            title="Select only unprocessed chunks to continue"
+                          >
+                            <Play className="w-3 h-3 mr-1" />
+                            Resume ({chunks.filter(c => !c.processed).length} left)
+                          </Button>
+                        )}
                       </div>
                     </div>
                     
@@ -1092,19 +1135,34 @@ ${result.analyzer}
                           key={chunk.id}
                           onClick={() => toggleChunk(chunk.id)}
                           className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-all ${
-                            chunk.selected 
-                              ? 'bg-orange-200 border-2 border-orange-400' 
-                              : 'bg-white border-2 border-gray-200 hover:border-orange-300'
+                            chunk.processed
+                              ? 'bg-green-100 border-2 border-green-400'
+                              : lastFailedChunkIndex === chunk.id
+                                ? 'bg-red-100 border-2 border-red-400'
+                                : chunk.selected 
+                                  ? 'bg-orange-200 border-2 border-orange-400' 
+                                  : 'bg-white border-2 border-gray-200 hover:border-orange-300'
                           }`}
                         >
-                          <Checkbox 
-                            checked={chunk.selected} 
-                            onCheckedChange={() => toggleChunk(chunk.id)}
-                            className="pointer-events-none"
-                          />
+                          {chunk.processed ? (
+                            <Check className="w-4 h-4 text-green-600" />
+                          ) : lastFailedChunkIndex === chunk.id ? (
+                            <X className="w-4 h-4 text-red-600" />
+                          ) : (
+                            <Checkbox 
+                              checked={chunk.selected} 
+                              onCheckedChange={() => toggleChunk(chunk.id)}
+                              className="pointer-events-none"
+                            />
+                          )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-800">
+                            <p className={`text-sm font-semibold ${
+                              chunk.processed ? 'text-green-700' : 
+                              lastFailedChunkIndex === chunk.id ? 'text-red-700' : 'text-gray-800'
+                            }`}>
                               Chunk {chunk.id}
+                              {chunk.processed && <span className="ml-1 text-xs font-normal">(done)</span>}
+                              {lastFailedChunkIndex === chunk.id && <span className="ml-1 text-xs font-normal">(failed)</span>}
                             </p>
                             <p className="text-xs text-gray-500 truncate">
                               Words {chunk.startWord}-{chunk.endWord} ({chunk.wordCount})
@@ -1117,6 +1175,11 @@ ${result.analyzer}
                     <div className="mt-3 pt-3 border-t border-orange-200 flex items-center justify-between text-sm">
                       <span className="text-orange-700">
                         {selectedChunks.length} of {chunks.length} chunks selected
+                        {chunks.some(c => c.processed) && (
+                          <span className="ml-2 text-green-600">
+                            ({chunks.filter(c => c.processed).length} completed)
+                          </span>
+                        )}
                       </span>
                       {selectedChunks.length === 0 && (
                         <span className="text-red-600 text-xs">Select at least one chunk</span>
