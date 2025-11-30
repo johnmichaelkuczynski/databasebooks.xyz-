@@ -50,13 +50,11 @@ export type StylometricAuthor = typeof stylometricAuthors.$inferSelect;
 export const analysisHistory = pgTable("analysis_history", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
-  analysisType: varchar("analysis_type", { length: 50 }),
-  authorNameA: varchar("author_name_a", { length: 255 }),
-  authorNameB: varchar("author_name_b", { length: 255 }),
-  verticalityScoreA: decimal("verticality_score_a", { precision: 4, scale: 3 }),
-  verticalityScoreB: decimal("verticality_score_b", { precision: 4, scale: 3 }),
+  analysisType: varchar("analysis_type", { length: 50 }).notNull(),
+  provider: varchar("provider", { length: 50 }),
+  inputPreview: text("input_preview"),
+  outputData: jsonb("output_data"),
   createdAt: timestamp("created_at").defaultNow(),
-  fullReport: text("full_report"),
 });
 
 export const insertAnalysisHistorySchema = createInsertSchema(analysisHistory).omit({
