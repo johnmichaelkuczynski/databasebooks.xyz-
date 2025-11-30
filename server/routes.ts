@@ -16,7 +16,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/analyze", async (req, res) => {
     try {
-      const { text, provider, functionType } = req.body;
+      const { text, provider, functionType, username } = req.body;
 
       if (!text || typeof text !== "string") {
         return res.status(400).json({ 
@@ -37,6 +37,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await analyzeText(text, provider, functionType);
+      
+      // Save to history if user is logged in
+      if (username && typeof username === "string" && username.trim().length >= 2) {
+        try {
+          const cleanUsername = username.trim().toLowerCase();
+          let user = await storage.getUserByUsername(cleanUsername);
+          if (!user) {
+            user = await storage.createUser({ username: cleanUsername });
+          }
+          
+          const inputPreview = text.substring(0, 200) + (text.length > 200 ? "..." : "");
+          
+          await storage.createAnalysisHistory({
+            userId: user.id,
+            analysisType: functionType,
+            provider: provider,
+            inputPreview: inputPreview,
+            outputData: result
+          });
+        } catch (saveError) {
+          console.error("Failed to save to history:", saveError);
+          // Don't fail the request if history save fails
+        }
+      }
       
       res.json(result);
     } catch (error: any) {
@@ -535,6 +559,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Export error:", error);
       res.status(500).json({ 
         error: error.message || "Export failed" 
+      });
+    }
+  });
+
+  // History API endpoints
+  app.get("/api/history", async (req, res) => {
+    try {
+      const { username, type } = req.query;
+
+      if (!username || typeof username !== "string") {
+        return res.status(400).json({ error: "Username required" });
+      }
+
+      const user = await storage.getUserByUsername(username.trim().toLowerCase());
+      if (!user) {
+        return res.json({ history: [] });
+      }
+
+      let history;
+      if (type && typeof type === "string") {
+        history = await storage.getAnalysisHistoryByType(user.id, type);
+      } else {
+        history = await storage.getAnalysisHistory(user.id);
+      }
+
+      res.json({ history });
+    } catch (error: any) {
+      console.error("Get history error:", error);
+      res.status(500).json({ 
+        error: error.message || "Failed to get history" 
+      });
+    }
+  });
+
+  app.get("/api/history/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const item = await storage.getAnalysisHistoryItem(parseInt(id));
+      
+      if (!item) {
+        return res.status(404).json({ error: "History item not found" });
+      }
+
+      res.json({ item });
+    } catch (error: any) {
+      console.error("Get history item error:", error);
+      res.status(500).json({ 
+        error: error.message || "Failed to get history item" 
+      });
+    }
+  });
+
+  app.delete("/api/history/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteAnalysisHistoryItem(parseInt(id));
+      res.json({ success: true, message: "History item deleted" });
+    } catch (error: any) {
+      console.error("Delete history error:", error);
+      res.status(500).json({ 
+        error: error.message || "Failed to delete history item" 
       });
     }
   });
