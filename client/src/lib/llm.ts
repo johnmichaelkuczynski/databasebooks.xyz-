@@ -9,14 +9,15 @@ export type AnalysisResult = {
 export async function analyzeText(
   text: string, 
   provider: string,
-  functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer'
+  functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer',
+  username?: string
 ): Promise<AnalysisResult> {
   const response = await fetch("/api/analyze", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ text, provider, functionType }),
+    body: JSON.stringify({ text, provider, functionType, username }),
   });
 
   if (!response.ok) {
@@ -32,14 +33,15 @@ export async function analyzeTextStreaming(
   provider: string,
   functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer',
   onChunk: (chunk: string) => void,
-  onComplete?: () => void
+  onComplete?: () => void,
+  username?: string
 ): Promise<void> {
   const response = await fetch("/api/analyze/stream", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ text, provider, functionType }),
+    body: JSON.stringify({ text, provider, functionType, username }),
   });
 
   if (!response.ok) {

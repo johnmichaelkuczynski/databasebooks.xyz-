@@ -73,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/analyze/stream", async (req, res) => {
     try {
-      const { text, provider, functionType } = req.body;
+      const { text, provider, functionType, username } = req.body;
 
       if (!text || typeof text !== "string") {
         return res.status(400).json({ 
@@ -99,9 +99,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Connection': 'keep-alive'
       });
 
+      let fullContent = '';
       await analyzeTextStreaming(text, provider, functionType, (chunk: string) => {
+        fullContent += chunk;
         res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
       });
+
+      // Save to history if user is logged in
+      if (username && typeof username === "string" && username.trim().length >= 2) {
+        try {
+          const cleanUsername = username.trim().toLowerCase();
+          let user = await storage.getUserByUsername(cleanUsername);
+          if (!user) {
+            user = await storage.createUser({ username: cleanUsername });
+          }
+          
+          const inputPreview = text.substring(0, 200) + (text.length > 200 ? "..." : "");
+          
+          // Try to parse the accumulated content as JSON for structured storage
+          let outputData;
+          try {
+            outputData = JSON.parse(fullContent);
+          } catch {
+            outputData = { rawContent: fullContent };
+          }
+          
+          await storage.createAnalysisHistory({
+            userId: user.id,
+            analysisType: functionType,
+            provider: provider,
+            inputPreview: inputPreview,
+            outputData: outputData
+          });
+        } catch (saveError) {
+          console.error("Failed to save streaming result to history:", saveError);
+        }
+      }
 
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
@@ -596,10 +629,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/history/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      const { username } = req.query;
+      
+      if (!username || typeof username !== "string") {
+        return res.status(401).json({ error: "Login required" });
+      }
+      
+      const user = await storage.getUserByUsername(username.trim().toLowerCase());
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
       const item = await storage.getAnalysisHistoryItem(parseInt(id));
       
       if (!item) {
         return res.status(404).json({ error: "History item not found" });
+      }
+      
+      // Verify ownership
+      if (item.userId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
       }
 
       res.json({ item });
@@ -614,6 +663,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/history/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      const { username } = req.query;
+      
+      if (!username || typeof username !== "string") {
+        return res.status(401).json({ error: "Login required" });
+      }
+      
+      const user = await storage.getUserByUsername(username.trim().toLowerCase());
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      const item = await storage.getAnalysisHistoryItem(parseInt(id));
+      
+      if (!item) {
+        return res.status(404).json({ error: "History item not found" });
+      }
+      
+      // Verify ownership
+      if (item.userId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       await storage.deleteAnalysisHistoryItem(parseInt(id));
       res.json({ success: true, message: "History item deleted" });
     } catch (error: any) {

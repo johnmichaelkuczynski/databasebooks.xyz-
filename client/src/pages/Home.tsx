@@ -29,7 +29,10 @@ import {
   BookOpen,
   Save,
   X,
-  GitCompare
+  GitCompare,
+  History,
+  Eye,
+  Clock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -144,6 +147,12 @@ export default function Home() {
   const [isAnalyzingStylometrics, setIsAnalyzingStylometrics] = useState(false);
   const [savedAuthors, setSavedAuthors] = useState<StylometricAuthor[]>([]);
   
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [historyItems, setHistoryItems] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null);
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<string>("all");
+  
   const { toast } = useToast();
   
   const wordCount = text.split(/\s+/).filter(Boolean).length;
@@ -226,7 +235,71 @@ export default function Home() {
     setUsername(null);
     localStorage.removeItem('tis_username');
     setSavedAuthors([]);
+    setHistoryItems([]);
     toast({ description: "Logged out successfully" });
+  };
+  
+  const loadHistory = async (typeFilter?: string) => {
+    if (!username) return;
+    
+    setIsLoadingHistory(true);
+    try {
+      const url = typeFilter && typeFilter !== "all" 
+        ? `/api/history?username=${encodeURIComponent(username)}&type=${typeFilter}`
+        : `/api/history?username=${encodeURIComponent(username)}`;
+      
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setHistoryItems(data.history || []);
+      }
+    } catch (error) {
+      console.error("Failed to load history:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+  
+  const handleViewHistory = () => {
+    if (!username) {
+      toast({
+        title: "Login required",
+        description: "Please log in to view your history",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowHistoryDialog(true);
+    loadHistory(historyTypeFilter);
+  };
+  
+  const handleDeleteHistoryItem = async (itemId: number) => {
+    if (!username) return;
+    
+    try {
+      const response = await fetch(`/api/history/${itemId}?username=${encodeURIComponent(username)}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        setHistoryItems(prev => prev.filter(item => item.id !== itemId));
+        setSelectedHistoryItem(null);
+        toast({ description: "History item deleted" });
+      }
+    } catch (error) {
+      console.error("Failed to delete history item:", error);
+    }
+  };
+  
+  const formatAnalysisType = (type: string): string => {
+    const typeLabels: Record<string, string> = {
+      quotes: "Quotes",
+      context: "Annotated Quotes", 
+      rewrite: "Paragraph Compression",
+      database: "Database",
+      analyzer: "Text Analyzer"
+    };
+    return typeLabels[type] || type;
   };
 
   const toggleChunk = (chunkId: number) => {
@@ -270,7 +343,8 @@ export default function Home() {
               analyzer: accumulatedOutput
             });
           }
-        }
+        },
+        username || undefined
       ).catch(reject);
     });
   };
@@ -340,7 +414,8 @@ export default function Home() {
             } catch (e) {
               console.error("Failed to parse streaming output:", e);
             }
-          }
+          },
+          username || undefined
         );
       }
     } catch (error: any) {
@@ -676,6 +751,16 @@ ${result.analyzer}
                   <User className="w-4 h-4 mr-1" />
                   {username}
                 </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewHistory}
+                  className="h-8 gap-1 text-primary border-primary hover:bg-primary hover:text-white"
+                  data-testid="button-history"
+                >
+                  <History className="w-4 h-4" />
+                  History
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1382,6 +1467,160 @@ ${result.analyzer}
                   </>
                 )}
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* History Dialog */}
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-4xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-primary" />
+              Analysis History
+            </DialogTitle>
+            <DialogDescription>
+              View your past analyses. All outputs are automatically saved when logged in.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex gap-2 items-center mb-4">
+            <Label className="text-sm font-medium">Filter by type:</Label>
+            <Select 
+              value={historyTypeFilter} 
+              onValueChange={(v) => {
+                setHistoryTypeFilter(v);
+                loadHistory(v);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" data-testid="select-history-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="quotes">Quotes</SelectItem>
+                <SelectItem value="context">Annotated Quotes</SelectItem>
+                <SelectItem value="rewrite">Compression</SelectItem>
+                <SelectItem value="database">Database</SelectItem>
+                <SelectItem value="analyzer">Text Analyzer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex gap-4 h-[60vh]">
+            <ScrollArea className="flex-1 border rounded-lg p-2">
+              {isLoadingHistory ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  Loading...
+                </div>
+              ) : historyItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <History className="w-12 h-12 mb-2 opacity-50" />
+                  <p>No history yet</p>
+                  <p className="text-sm">Your analyses will appear here</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {historyItems.map((item) => (
+                    <Card 
+                      key={item.id}
+                      className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${selectedHistoryItem?.id === item.id ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => setSelectedHistoryItem(item)}
+                      data-testid={`history-item-${item.id}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {formatAnalysisType(item.analysisType)}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground uppercase">
+                            {item.provider}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="w-3 h-3" />
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {item.inputPreview}
+                      </p>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+            
+            <div className="flex-1 border rounded-lg flex flex-col">
+              {selectedHistoryItem ? (
+                <>
+                  <div className="p-3 border-b flex items-center justify-between bg-muted/30">
+                    <div>
+                      <h4 className="font-semibold">{formatAnalysisType(selectedHistoryItem.analysisType)}</h4>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(selectedHistoryItem.createdAt).toLocaleString()} • {selectedHistoryItem.provider?.toUpperCase()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const content = JSON.stringify(selectedHistoryItem.outputData, null, 2);
+                          navigator.clipboard.writeText(content);
+                          toast({ description: "Copied to clipboard" });
+                        }}
+                        data-testid="button-copy-history"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteHistoryItem(selectedHistoryItem.id)}
+                        data-testid="button-delete-history"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <ScrollArea className="flex-1 p-3">
+                    <pre className="text-xs whitespace-pre-wrap font-mono">
+                      {(() => {
+                        const data = selectedHistoryItem.outputData;
+                        if (!data) return "No output data";
+                        
+                        if (selectedHistoryItem.analysisType === "quotes" && data.quotes) {
+                          return data.quotes.map((q: string, i: number) => `${i + 1}. "${q}"`).join('\n\n');
+                        }
+                        if (selectedHistoryItem.analysisType === "context" && data.annotatedQuotes) {
+                          return data.annotatedQuotes.map((q: any, i: number) => 
+                            `${i + 1}. "${q.quote}"\n   → ${q.context}`
+                          ).join('\n\n');
+                        }
+                        if (selectedHistoryItem.analysisType === "rewrite" && data.summary) {
+                          return data.summary;
+                        }
+                        if (selectedHistoryItem.analysisType === "database" && data.database) {
+                          return data.database;
+                        }
+                        if (selectedHistoryItem.analysisType === "analyzer" && data.analyzer) {
+                          return data.analyzer;
+                        }
+                        
+                        return JSON.stringify(data, null, 2);
+                      })()}
+                    </pre>
+                  </ScrollArea>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <Eye className="w-12 h-12 mb-2 opacity-50" />
+                  <p>Select an item to view</p>
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>
