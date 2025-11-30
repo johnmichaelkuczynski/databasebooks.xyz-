@@ -606,6 +606,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // History API endpoints
+  
+  // Save partial results from multi-chunk processing
+  app.post("/api/history/save-partial", async (req, res) => {
+    try {
+      const { username, analysisType, provider, inputPreview, outputData, chunksCompleted, totalChunks } = req.body;
+      
+      if (!username || typeof username !== "string") {
+        return res.status(400).json({ error: "Username required" });
+      }
+      
+      const cleanUsername = username.trim().toLowerCase();
+      let user = await storage.getUserByUsername(cleanUsername);
+      if (!user) {
+        user = await storage.createUser({ username: cleanUsername });
+      }
+      
+      // Add chunk progress info to the output
+      const enrichedOutput = {
+        ...outputData,
+        _chunkProgress: {
+          completed: chunksCompleted,
+          total: totalChunks,
+          partial: chunksCompleted < totalChunks
+        }
+      };
+      
+      await storage.createAnalysisHistory({
+        userId: user.id,
+        analysisType,
+        provider,
+        inputPreview: `[${chunksCompleted}/${totalChunks} chunks] ${inputPreview}`,
+        outputData: enrichedOutput
+      });
+      
+      res.json({ success: true, message: `Saved results for ${chunksCompleted}/${totalChunks} chunks` });
+    } catch (error: any) {
+      console.error("Save partial results error:", error);
+      res.status(500).json({ error: error.message || "Failed to save partial results" });
+    }
+  });
+  
   app.get("/api/history", async (req, res) => {
     try {
       const { username, type } = req.query;

@@ -115,6 +115,81 @@ function combineResults(results: AnalysisResult[]): AnalysisResult {
   };
 }
 
+function buildAccumulatedDisplay(
+  results: AnalysisResult[], 
+  functionType: string, 
+  currentChunk: number, 
+  totalChunks: number, 
+  chunkCompleted: boolean = false,
+  errorMessage?: string
+): string {
+  let output = "";
+  
+  // Header with progress
+  output += `╔══════════════════════════════════════════════════════════════╗\n`;
+  output += `║  PROCESSING PROGRESS: ${results.length}/${totalChunks} chunks completed`;
+  if (errorMessage) {
+    output += ` (STOPPED)`;
+  }
+  output += `\n`;
+  output += `╚══════════════════════════════════════════════════════════════╝\n\n`;
+  
+  // Show error if any
+  if (errorMessage) {
+    output += `⚠️ CHUNK ${currentChunk} FAILED: ${errorMessage}\n`;
+    output += `✅ Results from ${results.length} completed chunks are saved below.\n\n`;
+  } else if (!chunkCompleted) {
+    output += `⏳ Processing chunk ${currentChunk}/${totalChunks}...\n\n`;
+  }
+  
+  // Show accumulated results based on function type
+  if (results.length > 0) {
+    switch (functionType) {
+      case 'quotes':
+        const allQuotes = results.flatMap(r => r.quotes);
+        output += `═══ ${allQuotes.length} QUOTES EXTRACTED ═══\n\n`;
+        allQuotes.forEach((q, i) => {
+          output += `${i + 1}. "${q}"\n\n`;
+        });
+        break;
+        
+      case 'context':
+        const allAnnotated = results.flatMap(r => r.annotatedQuotes);
+        output += `═══ ${allAnnotated.length} ANNOTATED QUOTES ═══\n\n`;
+        allAnnotated.forEach((q, i) => {
+          output += `${i + 1}. "${q.quote}"\n   → ${q.context}\n\n`;
+        });
+        break;
+        
+      case 'rewrite':
+        results.forEach((r, i) => {
+          output += `═══ CHUNK ${i + 1} COMPRESSION ═══\n${r.summary}\n\n`;
+        });
+        break;
+        
+      case 'database':
+        results.forEach((r, i) => {
+          output += `═══════════════════════════════════════════════════════════════\n`;
+          output += `                    CHUNK ${i + 1} DATABASE\n`;
+          output += `═══════════════════════════════════════════════════════════════\n\n`;
+          output += `${r.database}\n\n`;
+        });
+        break;
+        
+      case 'analyzer':
+        results.forEach((r, i) => {
+          output += `═══════════════════════════════════════════════════════════════\n`;
+          output += `                    CHUNK ${i + 1} ANALYSIS\n`;
+          output += `═══════════════════════════════════════════════════════════════\n\n`;
+          output += `${r.analyzer}\n\n`;
+        });
+        break;
+    }
+  }
+  
+  return output;
+}
+
 export default function Home() {
   const [text, setText] = useState("");
   const [selectedLLM, setSelectedLLM] = useState<LLM>("grok");
@@ -369,28 +444,91 @@ export default function Home() {
         const chunksToProcess = selectedChunks;
         setTotalChunksToProcess(chunksToProcess.length);
         const results: AnalysisResult[] = [];
+        let failedChunkIndex = -1;
+        let failureError = "";
         
         for (let i = 0; i < chunksToProcess.length; i++) {
           setCurrentChunkIndex(i + 1);
-          setStreamingOutput(`Processing chunk ${i + 1} of ${chunksToProcess.length}...\n\n`);
+          
+          // Show accumulated results plus current processing status
+          const accumulatedDisplay = buildAccumulatedDisplay(results, functionType, i + 1, chunksToProcess.length);
+          setStreamingOutput(accumulatedDisplay);
           
           toast({
             title: `Processing Chunk ${i + 1}/${chunksToProcess.length}`,
             description: `Words ${chunksToProcess[i].startWord}-${chunksToProcess[i].endWord}`,
           });
           
-          const chunkResult = await processChunk(chunksToProcess[i].text, functionType);
-          results.push(chunkResult);
-          setChunkResults([...results]);
+          try {
+            const chunkResult = await processChunk(chunksToProcess[i].text, functionType);
+            results.push(chunkResult);
+            setChunkResults([...results]);
+            
+            // Update display with new result immediately
+            const updatedDisplay = buildAccumulatedDisplay(results, functionType, i + 1, chunksToProcess.length, true);
+            setStreamingOutput(updatedDisplay);
+            
+            // Combine and set result after each chunk so it's always available
+            const combinedSoFar = combineResults(results);
+            setResult(combinedSoFar);
+          } catch (chunkError: any) {
+            failedChunkIndex = i + 1;
+            failureError = chunkError.message || "Unknown error";
+            console.error(`Chunk ${i + 1} failed:`, chunkError);
+            break; // Stop processing but keep what we have
+          }
         }
         
-        const combinedResult = combineResults(results);
-        setResult(combinedResult);
-        
-        toast({
-          title: "Analysis Complete",
-          description: `Processed ${chunksToProcess.length} chunks using ${selectedLLM.toUpperCase()}.`,
-        });
+        // If we have any results, combine and save them
+        if (results.length > 0) {
+          const combinedResult = combineResults(results);
+          setResult(combinedResult);
+          
+          // Save partial results to history if logged in
+          if (username && results.length > 0) {
+            try {
+              const inputPreview = text.substring(0, 200) + (text.length > 200 ? "..." : "");
+              await fetch('/api/history/save-partial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  username,
+                  analysisType: functionType,
+                  provider: selectedLLM,
+                  inputPreview,
+                  outputData: combinedResult,
+                  chunksCompleted: results.length,
+                  totalChunks: chunksToProcess.length
+                })
+              });
+            } catch (saveError) {
+              console.error("Failed to save partial results:", saveError);
+            }
+          }
+          
+          if (failedChunkIndex > 0) {
+            toast({
+              title: `Partial Results Saved`,
+              description: `Completed ${results.length}/${chunksToProcess.length} chunks. Chunk ${failedChunkIndex} failed: ${failureError}`,
+              variant: "destructive",
+            });
+            
+            // Show final accumulated results with error info
+            const finalDisplay = buildAccumulatedDisplay(results, functionType, failedChunkIndex, chunksToProcess.length, true, failureError);
+            setStreamingOutput(finalDisplay);
+          } else {
+            toast({
+              title: "Analysis Complete",
+              description: `Processed ${chunksToProcess.length} chunks using ${selectedLLM.toUpperCase()}.`,
+            });
+          }
+        } else if (failedChunkIndex > 0) {
+          toast({
+            title: "Processing Failed",
+            description: `First chunk failed: ${failureError}`,
+            variant: "destructive",
+          });
+        }
       } else {
         let accumulatedOutput = "";
         
