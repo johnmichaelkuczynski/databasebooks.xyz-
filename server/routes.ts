@@ -763,43 +763,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const wordCount = text.split(/\s+/).filter(Boolean).length;
       
-      const prompt = `You are a ruthless literary critic with impossibly high standards. Your task is to extract ONLY the truly sharp, unmistakably brilliant lines from this text.
+      const prompt = `You are a discerning literary critic. Your task is to extract genuinely sharp, insightful lines from this text.
 
-WHAT COUNTS AS SHARP (be EXTREMELY strict - most texts have 0-4 sharp quotes, almost never more than 10 per 1000 words):
-- High insight-to-word ratio
-- Unexpected reversal or pattern-break
-- Elegant compression of a big idea
+WHAT COUNTS AS SHARP:
+- High insight-to-word ratio — says something profound in few words
+- Unexpected reversal or pattern-break that reframes understanding  
+- Elegant compression of a complex idea into a memorable formulation
 - Dry/dark wit that reveals deep understanding
-- Precise distinction everyone else blurs
-- Must feel like a "knife" — NEVER merely correct, eloquent, academic, or moralising
+- Precise distinction that cuts through confusion others miss
+- Philosophical insights that "cut nature at the joints" — even in academic contexts
+- Must deliver genuine intellectual payload, not just sound clever
 
 WHAT DOES NOT COUNT:
-- Academic jargon or technical language (no matter how complex)
-- Eloquent but conventional observations
-- Moralistic statements or calls to action
-- Summaries or transitions
-- Standard scholarly claims or arguments
-- Merely correct statements
+- Bland scholarly prose that merely explains without insight
+- Eloquent but conventional observations anyone could make
+- Moralistic preaching or calls to action
+- Summaries, transitions, or textbook definitions
+- Jargon-heavy sentences with no actual insight
+- Merely correct statements that don't illuminate
 
-CALIBRATION EXAMPLES (these are your eternal gold standard):
+IMPORTANT: Academic or philosophical writing CAN contain sharp quotes if the sentences deliver genuine insight. Don't reject a quote just because it's from a philosophy text — judge whether it cuts through assumptions with precision.
 
-EXAMPLE 1: Academic dissertation abstract on transcendental empiricism → 0 sharp quotes (too academic/conventional)
+CALIBRATION EXAMPLES:
 
-EXAMPLE 2: "The reason psychopaths can pass lie detector tests is that psychopaths don't believe anything. So they don't have to lie." → SHARP (unexpected insight, knife-like)
+SHARP PHILOSOPHICAL: "External objects don't supply our minds with anything. All they do is tell our minds when to deploy what is already in them." → SHARP (elegant reversal of naive empiricism)
 
-EXAMPLE 3: "We built machines that sound like they know things. They don't. They weave patterns from what we've already said and sell it back to us as truth." → SHARP (brutal formulation)
+SHARP PHILOSOPHICAL: "Thoughts are taught by being elicited, not by being deposited." → SHARP (precise compression)
 
-EXAMPLE 4: "The Emperor's New Clothes, but the tailors are algorithms and we're all clapping." → SHARP (dark wit, pattern-break)
+SHARP PHILOSOPHICAL: "His categories don't cut nature at the joints." → SHARP (memorable metaphor that clarifies)
 
-EXAMPLE 5: Academic explanation of Gareth Evans' theory → 0 sharp quotes (merely correct/scholarly)
+SHARP: "The reason psychopaths can pass lie detector tests is that psychopaths don't believe anything. So they don't have to lie." → SHARP (unexpected insight)
 
-EXAMPLE 6: "Double-think is possible because double-think is about not believing anything." → SHARP (elegant compression)
+SHARP: "We built machines that sound like they know things. They don't. They weave patterns from what we've already said and sell it back to us as truth." → SHARP (brutal formulation)
 
-EXAMPLE 7: "Credibility is relational; truth is not." → SHARP (precise distinction)
+SHARP: "Credibility is relational; truth is not." → SHARP (precise distinction)
 
-EXAMPLE 8: Book blurb about philosophy ("This is a book about everything...") → 0 sharp quotes (promotional language)
+NOT SHARP: "In this chapter, we will examine the relationship between X and Y" → NOT SHARP (mere transition)
 
-Now analyze the following text. Extract ONLY the genuinely sharp quotes (most texts will have very few or none).
+NOT SHARP: "Many philosophers have argued that..." → NOT SHARP (bland scholarly framing)
+
+NOT SHARP: "It is important to consider the implications of..." → NOT SHARP (textbook padding)
+
+Extract all genuinely sharp quotes. Good philosophical writing often contains many sharp insights.
 
 TEXT TO ANALYZE:
 ${text}
@@ -897,21 +902,21 @@ Respond with valid JSON only:
       const wordCountA = textA.split(/\s+/).filter(Boolean).length;
       const wordCountB = textB.split(/\s+/).filter(Boolean).length;
       
-      const prompt = `You are a ruthless literary critic with impossibly high standards. Your task is to extract ONLY the truly sharp, unmistakably brilliant lines from TWO texts and compare them.
+      const prompt = `You are a discerning literary critic. Extract genuinely sharp, insightful lines from TWO texts and compare them.
 
-WHAT COUNTS AS SHARP (be EXTREMELY strict):
-- High insight-to-word ratio
-- Unexpected reversal or pattern-break
-- Elegant compression of a big idea
-- Dry/dark wit that reveals deep understanding
-- Precise distinction everyone else blurs
-- Must feel like a "knife" — NEVER merely correct, eloquent, academic, or moralising
+WHAT COUNTS AS SHARP:
+- High insight-to-word ratio — says something profound in few words
+- Unexpected reversal or pattern-break that reframes understanding
+- Elegant compression of a complex idea into a memorable formulation
+- Philosophical insights that "cut nature at the joints" — even in academic contexts
+- Precise distinctions that cut through confusion others miss
 
 WHAT DOES NOT COUNT:
-- Academic jargon (no matter how complex)
-- Eloquent but conventional observations
-- Moralistic statements
-- Standard scholarly claims
+- Bland scholarly prose without genuine insight
+- Transitions, summaries, or textbook definitions
+- Merely correct statements that don't illuminate
+
+IMPORTANT: Academic/philosophical writing CAN contain sharp quotes. Judge by insight, not by genre.
 
 TEXT A:
 ${textA}
