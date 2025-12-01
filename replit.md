@@ -152,13 +152,18 @@ API keys are stored client-side in localStorage via Zustand persist middleware a
      - 1-3 density → 30-65 score
      - 3-6 density → 65-90 score
      - 6+ density → 90-100 score
-   - Strict calibration examples in prompt to enforce "sharp" vs "academic" distinction
+   - Prompt calibration (Dec 2024):
+     - Liberal extraction for sharp writing: punchy formulations, reversals, dark wit, paradoxes, compressed insights
+     - Examples: "Religions are degenerate cults", "All worship is projection", "Projection is unconscious LARPing"
+     - Sharp philosophical writing DOES get extracted: "Thoughts are taught by being elicited, not by being deposited"
+     - Bland dissertation abstracts and academic framing get ZERO quotes
+     - Target: 20-50 sharp quotes from genuinely insightful essays
 
 8. **Compare Intelligence** - Side-by-side analysis of two texts
    - Endpoint: `POST /api/intelligence/compare`
    - Compares sharp quote density between Text A and Text B
    - Determines winner based on density difference (0.3 threshold for "equal")
-   - Uses same scoring formula as single-text analysis
+   - Uses same calibration and scoring formula as single-text analysis
 
 ### Design Decisions
 - Username-only authentication (no password required)
