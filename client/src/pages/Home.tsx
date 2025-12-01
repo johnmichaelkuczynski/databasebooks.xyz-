@@ -630,21 +630,12 @@ export default function Home() {
 
   const handleStylometricsAnalyze = async () => {
     const textToAnalyze = stylometricsTab === "single" ? (stylometricsText || text) : stylometricsText;
-    const authorName = stylometricsTab === "single" ? stylometricsAuthorName : stylometricsAuthorName;
+    const authorName = (stylometricsTab === "single" ? stylometricsAuthorName : stylometricsAuthorName).trim() || "Author X";
     
     if (!textToAnalyze.trim()) {
       toast({
         title: "Text required",
         description: "Please enter text to analyze",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (!authorName.trim()) {
-      toast({
-        title: "Author name required",
-        description: "Please enter an author name or label",
         variant: "destructive",
       });
       return;
@@ -671,7 +662,7 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username,
-            authorName: stylometricsAuthorName,
+            authorName,
             sourceTitle: stylometricsSourceTitle,
             text: textToAnalyze,
             provider: selectedLLM
@@ -692,7 +683,7 @@ export default function Home() {
           description: `Verticality Score: ${data.data.verticalityScore?.toFixed(2) || 'N/A'}`,
         });
       } else {
-        if (!stylometricsTextB.trim() || !stylometricsAuthorNameB.trim()) {
+        if (!stylometricsTextB.trim()) {
           toast({
             title: "Missing Text B",
             description: "Please provide both texts for comparison",
@@ -711,13 +702,15 @@ export default function Home() {
           return;
         }
         
+        const authorNameB = stylometricsAuthorNameB.trim() || "Author Y";
+        
         const response = await fetch('/api/stylometrics/compare', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username,
-            textA: { text: stylometricsText, authorName: stylometricsAuthorName },
-            textB: { text: stylometricsTextB, authorName: stylometricsAuthorNameB },
+            textA: { text: stylometricsText, authorName },
+            textB: { text: stylometricsTextB, authorName: authorNameB },
             provider: selectedLLM
           })
         });
@@ -813,7 +806,7 @@ export default function Home() {
       return;
     }
     
-    if (!stylometricsData || !stylometricsAuthorName) {
+    if (!stylometricsData) {
       toast({
         title: "No data to save",
         description: "Run an analysis first",
@@ -822,13 +815,15 @@ export default function Home() {
       return;
     }
     
+    const authorNameToSave = stylometricsAuthorName.trim() || "Author X";
+    
     try {
       const response = await fetch('/api/stylometrics/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username,
-          authorName: stylometricsAuthorName,
+          authorName: authorNameToSave,
           sourceTitle: stylometricsSourceTitle,
           data: stylometricsData,
           fullReport: stylometricsReport
@@ -843,7 +838,7 @@ export default function Home() {
       const data = await response.json();
       toast({
         title: data.message,
-        description: `Saved profile for ${stylometricsAuthorName}`,
+        description: `Saved profile for ${authorNameToSave}`,
       });
       
       loadSavedAuthors(username);
@@ -1624,7 +1619,7 @@ ${result.analyzer}
               <TabsContent value="single" className="mt-0 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="author-name">Author Name / Label *</Label>
+                    <Label htmlFor="author-name">Author Name / Label (optional)</Label>
                     <Input
                       id="author-name"
                       placeholder="e.g., John Smith"
@@ -1703,7 +1698,7 @@ ${result.analyzer}
                   <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <h4 className="font-semibold text-blue-800">Text A</h4>
                     <div className="space-y-2">
-                      <Label>Author Name *</Label>
+                      <Label>Author Name (optional)</Label>
                       <Input
                         placeholder="Author A"
                         value={stylometricsAuthorName}
@@ -1731,7 +1726,7 @@ ${result.analyzer}
                   <div className="space-y-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <h4 className="font-semibold text-purple-800">Text B</h4>
                     <div className="space-y-2">
-                      <Label>Author Name *</Label>
+                      <Label>Author Name (optional)</Label>
                       <Input
                         placeholder="Author B"
                         value={stylometricsAuthorNameB}
