@@ -763,48 +763,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const wordCount = text.split(/\s+/).filter(Boolean).length;
       
-      const prompt = `You are a discerning literary critic. Your task is to extract genuinely sharp, insightful lines from this text.
+      const prompt = `You are an expert at identifying sharp, quotable insights. Extract ALL the genuinely sharp lines from this text. Be thorough — a well-written text can contain dozens of sharp quotes.
 
-WHAT COUNTS AS SHARP:
-- High insight-to-word ratio — says something profound in few words
-- Unexpected reversal or pattern-break that reframes understanding  
-- Elegant compression of a complex idea into a memorable formulation
-- Dry/dark wit that reveals deep understanding
-- Precise distinction that cuts through confusion others miss
-- Philosophical insights that "cut nature at the joints" — even in academic contexts
-- Must deliver genuine intellectual payload, not just sound clever
+WHAT COUNTS AS SHARP (extract liberally):
+- Punchy formulations: "Religions are degenerate cults." "All worship is projection."
+- Reversals that reframe: "Thoughts are taught by being elicited, not by being deposited."
+- Precise distinctions: "Superhuman is not supernatural."
+- Dark wit: "The people who should commit suicide don't."
+- Compressed insights: "Projection is unconscious LARPing."
+- Memorable metaphors: "His categories don't cut nature at the joints."
+- Paradoxes stated sharply: "The lower you are in a hierarchy, the more fiercely you will defend it."
 
-WHAT DOES NOT COUNT:
-- Bland scholarly prose that merely explains without insight
-- Eloquent but conventional observations anyone could make
-- Moralistic preaching or calls to action
-- Summaries, transitions, or textbook definitions
-- Jargon-heavy sentences with no actual insight
-- Merely correct statements that don't illuminate
+WHAT DOES NOT COUNT (reject these):
+- Dissertation/abstract framing: "In this dissertation, I critically examine..."
+- Signposting: "This chapter is divided into five parts..."
+- Bland scholarly prose: "I argue that McDowell's direct realism is problematic."
+- Promises without payoff: "By answering the question X, philosopher Y reveals Z..."
+- Throat-clearing: "It is important to consider..."
 
-IMPORTANT: Academic or philosophical writing CAN contain sharp quotes if the sentences deliver genuine insight. Don't reject a quote just because it's from a philosophy text — judge whether it cuts through assumptions with precision.
+CALIBRATION - SHARP TEXT (extract many quotes):
+"To worship something is to regard it as supernatural. If you worship it, it's a fiction. All worship is projection. Projection is unconscious LARPing. A cult leader is someone on whom people believe they can project a great fiction."
+→ Extract ALL of these: each is a standalone insight.
 
-CALIBRATION EXAMPLES:
+CALIBRATION - BLAND TEXT (extract zero):  
+"In this dissertation, I critically examine the philosophy of transcendental empiricism. I argue that Gaskin's critiques are faulty and that Gaskin's minimalist empiricism is very dubious."
+→ Extract ZERO. This is academic framing, not insight.
 
-SHARP PHILOSOPHICAL: "External objects don't supply our minds with anything. All they do is tell our minds when to deploy what is already in them." → SHARP (elegant reversal of naive empiricism)
-
-SHARP PHILOSOPHICAL: "Thoughts are taught by being elicited, not by being deposited." → SHARP (precise compression)
-
-SHARP PHILOSOPHICAL: "His categories don't cut nature at the joints." → SHARP (memorable metaphor that clarifies)
-
-SHARP: "The reason psychopaths can pass lie detector tests is that psychopaths don't believe anything. So they don't have to lie." → SHARP (unexpected insight)
-
-SHARP: "We built machines that sound like they know things. They don't. They weave patterns from what we've already said and sell it back to us as truth." → SHARP (brutal formulation)
-
-SHARP: "Credibility is relational; truth is not." → SHARP (precise distinction)
-
-NOT SHARP: "In this chapter, we will examine the relationship between X and Y" → NOT SHARP (mere transition)
-
-NOT SHARP: "Many philosophers have argued that..." → NOT SHARP (bland scholarly framing)
-
-NOT SHARP: "It is important to consider the implications of..." → NOT SHARP (textbook padding)
-
-Extract all genuinely sharp quotes. Good philosophical writing often contains many sharp insights.
+Be generous with genuinely sharp writing. A good essay might have 20-50 sharp quotes. Only reject text that is genuinely bland, transitional, or merely descriptive.
 
 TEXT TO ANALYZE:
 ${text}
@@ -902,21 +887,21 @@ Respond with valid JSON only:
       const wordCountA = textA.split(/\s+/).filter(Boolean).length;
       const wordCountB = textB.split(/\s+/).filter(Boolean).length;
       
-      const prompt = `You are a discerning literary critic. Extract genuinely sharp, insightful lines from TWO texts and compare them.
+      const prompt = `Extract ALL sharp, quotable insights from TWO texts and compare them. Be thorough.
 
-WHAT COUNTS AS SHARP:
-- High insight-to-word ratio — says something profound in few words
-- Unexpected reversal or pattern-break that reframes understanding
-- Elegant compression of a complex idea into a memorable formulation
-- Philosophical insights that "cut nature at the joints" — even in academic contexts
-- Precise distinctions that cut through confusion others miss
+SHARP (extract liberally):
+- Punchy formulations: "Religions are degenerate cults."
+- Reversals: "Thoughts are taught by being elicited, not by being deposited."
+- Dark wit: "The people who should commit suicide don't."
+- Compressed insights: "Projection is unconscious LARPing."
+- Paradoxes: "The lower you are in a hierarchy, the more fiercely you will defend it."
 
-WHAT DOES NOT COUNT:
-- Bland scholarly prose without genuine insight
-- Transitions, summaries, or textbook definitions
-- Merely correct statements that don't illuminate
+NOT SHARP (reject):
+- "In this dissertation, I critically examine..." (academic framing)
+- "I argue that X is problematic." (bland scholarly prose)
+- Transitions, signposting, throat-clearing
 
-IMPORTANT: Academic/philosophical writing CAN contain sharp quotes. Judge by insight, not by genre.
+Be generous. A good essay might have 20-50 sharp quotes.
 
 TEXT A:
 ${textA}
