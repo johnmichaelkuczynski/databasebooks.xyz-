@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Upload, 
@@ -239,6 +239,10 @@ export default function Home() {
   const [intelligenceResult, setIntelligenceResult] = useState<IntelligenceResult | null>(null);
   const [intelligenceCompareResult, setIntelligenceCompareResult] = useState<IntelligenceCompareResult | null>(null);
   const [isAnalyzingIntelligence, setIsAnalyzingIntelligence] = useState(false);
+  const [isDraggingIntelA, setIsDraggingIntelA] = useState(false);
+  const [isDraggingIntelB, setIsDraggingIntelB] = useState(false);
+  const intelFileRefA = useRef<HTMLInputElement>(null);
+  const intelFileRefB = useRef<HTMLInputElement>(null);
   
   const { toast } = useToast();
   
@@ -967,6 +971,53 @@ ${result.analyzer}
       setIntelligenceTextA(text);
     }
     setShowIntelligenceDialog(true);
+  };
+
+  const handleIntelFileUpload = (file: File, target: 'A' | 'B') => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      if (target === 'A') {
+        setIntelligenceTextA(content);
+      } else {
+        setIntelligenceTextB(content);
+      }
+      toast({
+        title: "File Uploaded",
+        description: `${file.name} loaded to Text ${target} (${content.split(/\s+/).filter(Boolean).length} words)`,
+      });
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Error",
+        description: "Could not read file",
+        variant: "destructive",
+      });
+    };
+    reader.readAsText(file);
+  };
+
+  const handleIntelDrop = (e: React.DragEvent, target: 'A' | 'B') => {
+    e.preventDefault();
+    if (target === 'A') setIsDraggingIntelA(false);
+    else setIsDraggingIntelB(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleIntelFileUpload(file, target);
+    }
+  };
+
+  const handleIntelDragOver = (e: React.DragEvent, target: 'A' | 'B') => {
+    e.preventDefault();
+    if (target === 'A') setIsDraggingIntelA(true);
+    else setIsDraggingIntelB(true);
+  };
+
+  const handleIntelDragLeave = (e: React.DragEvent, target: 'A' | 'B') => {
+    e.preventDefault();
+    if (target === 'A') setIsDraggingIntelA(false);
+    else setIsDraggingIntelB(false);
   };
 
   return (
@@ -1802,18 +1853,51 @@ ${result.analyzer}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="intelligence-text">Text to Analyze</Label>
-                    <span className="text-sm text-muted-foreground">
-                      {(intelligenceTextA || text).split(/\s+/).filter(Boolean).length} words
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        ref={intelFileRefA}
+                        accept=".txt,.md,.text"
+                        className="hidden"
+                        onChange={(e) => e.target.files?.[0] && handleIntelFileUpload(e.target.files[0], 'A')}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => intelFileRefA.current?.click()}
+                        className="h-7 text-xs gap-1"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Upload
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        {(intelligenceTextA || text).split(/\s+/).filter(Boolean).length} words
+                      </span>
+                    </div>
                   </div>
-                  <Textarea
-                    id="intelligence-text"
-                    placeholder="Paste text here to measure its intellectual sharpness (or leave empty to use main input)..."
-                    value={intelligenceTextA}
-                    onChange={(e) => setIntelligenceTextA(e.target.value)}
-                    className="min-h-[200px] font-serif"
-                    data-testid="textarea-intelligence"
-                  />
+                  <div
+                    className={`relative rounded-lg transition-all ${isDraggingIntelA ? 'ring-2 ring-amber-500 bg-amber-50' : ''}`}
+                    onDrop={(e) => handleIntelDrop(e, 'A')}
+                    onDragOver={(e) => handleIntelDragOver(e, 'A')}
+                    onDragLeave={(e) => handleIntelDragLeave(e, 'A')}
+                  >
+                    <Textarea
+                      id="intelligence-text"
+                      placeholder="Paste text here, drag & drop a file, or click Upload..."
+                      value={intelligenceTextA}
+                      onChange={(e) => setIntelligenceTextA(e.target.value)}
+                      className="min-h-[200px] font-serif"
+                      data-testid="textarea-intelligence"
+                    />
+                    {isDraggingIntelA && (
+                      <div className="absolute inset-0 bg-amber-100/80 rounded-lg flex items-center justify-center pointer-events-none">
+                        <div className="text-amber-700 font-medium flex items-center gap-2">
+                          <Upload className="w-5 h-5" />
+                          Drop file here
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   {!intelligenceTextA && text && (
                     <p className="text-xs text-muted-foreground">Will use main input text ({text.split(/\s+/).filter(Boolean).length} words)</p>
                   )}
@@ -1872,7 +1956,18 @@ ${result.analyzer}
               <TabsContent value="compare" className="mt-0 space-y-4">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="font-semibold text-blue-800">Text A</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-blue-800">Text A</h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => intelFileRefA.current?.click()}
+                        className="h-6 text-xs gap-1 bg-white"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Upload
+                      </Button>
+                    </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label>Text *</Label>
@@ -1880,18 +1975,44 @@ ${result.analyzer}
                           {intelligenceTextA.split(/\s+/).filter(Boolean).length} words
                         </span>
                       </div>
-                      <Textarea
-                        placeholder="Paste Text A..."
-                        value={intelligenceTextA}
-                        onChange={(e) => setIntelligenceTextA(e.target.value)}
-                        className="min-h-[150px] font-serif text-sm"
-                        data-testid="textarea-intel-a"
-                      />
+                      <div
+                        className={`relative rounded-lg transition-all ${isDraggingIntelA ? 'ring-2 ring-blue-500 bg-blue-100' : ''}`}
+                        onDrop={(e) => handleIntelDrop(e, 'A')}
+                        onDragOver={(e) => handleIntelDragOver(e, 'A')}
+                        onDragLeave={(e) => handleIntelDragLeave(e, 'A')}
+                      >
+                        <Textarea
+                          placeholder="Paste Text A or drag & drop file..."
+                          value={intelligenceTextA}
+                          onChange={(e) => setIntelligenceTextA(e.target.value)}
+                          className="min-h-[150px] font-serif text-sm"
+                          data-testid="textarea-intel-a"
+                        />
+                        {isDraggingIntelA && (
+                          <div className="absolute inset-0 bg-blue-200/80 rounded-lg flex items-center justify-center pointer-events-none">
+                            <div className="text-blue-700 font-medium flex items-center gap-2">
+                              <Upload className="w-4 h-4" />
+                              Drop file
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
                   <div className="space-y-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <h4 className="font-semibold text-purple-800">Text B</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-purple-800">Text B</h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => intelFileRefB.current?.click()}
+                        className="h-6 text-xs gap-1 bg-white"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Upload
+                      </Button>
+                    </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label>Text *</Label>
@@ -1899,16 +2020,39 @@ ${result.analyzer}
                           {intelligenceTextB.split(/\s+/).filter(Boolean).length} words
                         </span>
                       </div>
-                      <Textarea
-                        placeholder="Paste Text B..."
-                        value={intelligenceTextB}
-                        onChange={(e) => setIntelligenceTextB(e.target.value)}
-                        className="min-h-[150px] font-serif text-sm"
-                        data-testid="textarea-intel-b"
-                      />
+                      <div
+                        className={`relative rounded-lg transition-all ${isDraggingIntelB ? 'ring-2 ring-purple-500 bg-purple-100' : ''}`}
+                        onDrop={(e) => handleIntelDrop(e, 'B')}
+                        onDragOver={(e) => handleIntelDragOver(e, 'B')}
+                        onDragLeave={(e) => handleIntelDragLeave(e, 'B')}
+                      >
+                        <Textarea
+                          placeholder="Paste Text B or drag & drop file..."
+                          value={intelligenceTextB}
+                          onChange={(e) => setIntelligenceTextB(e.target.value)}
+                          className="min-h-[150px] font-serif text-sm"
+                          data-testid="textarea-intel-b"
+                        />
+                        {isDraggingIntelB && (
+                          <div className="absolute inset-0 bg-purple-200/80 rounded-lg flex items-center justify-center pointer-events-none">
+                            <div className="text-purple-700 font-medium flex items-center gap-2">
+                              <Upload className="w-4 h-4" />
+                              Drop file
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+                
+                <input
+                  type="file"
+                  ref={intelFileRefB}
+                  accept=".txt,.md,.text"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleIntelFileUpload(e.target.files[0], 'B')}
+                />
                 
                 {intelligenceCompareResult && (
                   <div className="space-y-4 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg border border-amber-200">
