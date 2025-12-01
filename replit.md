@@ -133,3 +133,35 @@ API keys are stored client-side in localStorage via Zustand persist middleware a
 **TypeScript Configuration**: Strict mode with ESNext module resolution, bundler module resolution strategy, and path aliases for clean imports.
 
 **Package Management**: npm with lockfile version 3.
+
+## Implemented Analysis Features
+
+### Core Analysis Functions
+1. **Clean Quotation List** - Extracts notable quotes from text
+2. **Annotated Quotes** - Quotes with contextual annotations
+3. **Paragraph Compression** - Summarizes paragraphs
+4. **15-Section Database** - Structures document into database format
+5. **Text Analyzer** - Detailed scholarly analysis
+6. **Stylometrics** - Comprehensive stylometric analysis with verticality scoring
+
+### Intelligence Analysis (December 2024)
+7. **Intelligence Meter** - Extracts "sharp quotes" (knife-like insights, not academic prose) and calculates intelligence density score
+   - Endpoint: `POST /api/intelligence`
+   - Scoring: Non-linear mapping based on quote density per 1000 words
+     - 0-1 density → 0-30 score
+     - 1-3 density → 30-65 score
+     - 3-6 density → 65-90 score
+     - 6+ density → 90-100 score
+   - Strict calibration examples in prompt to enforce "sharp" vs "academic" distinction
+
+8. **Compare Intelligence** - Side-by-side analysis of two texts
+   - Endpoint: `POST /api/intelligence/compare`
+   - Compares sharp quote density between Text A and Text B
+   - Determines winner based on density difference (0.3 threshold for "equal")
+   - Uses same scoring formula as single-text analysis
+
+### Design Decisions
+- Username-only authentication (no password required)
+- Incremental saving for DATABASE function (each chunk saved immediately)
+- 20-second delay between chunk processing to prevent API rate limits
+- History endpoints validate ownership before read/delete operations
