@@ -28,6 +28,65 @@ export async function analyzeText(
   return response.json();
 }
 
+export type IntelligenceResult = {
+  wordCount: number;
+  sharpQuotes: string[];
+  quoteCount: number;
+  density: number;
+  score: number;
+  analysis: string;
+};
+
+export type IntelligenceCompareResult = {
+  textA: IntelligenceResult;
+  textB: IntelligenceResult;
+  winner: string;
+  verdict: string;
+};
+
+export async function measureIntelligence(
+  text: string,
+  provider: string,
+  username?: string
+): Promise<IntelligenceResult> {
+  const response = await fetch("/api/intelligence", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text, provider, username }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Intelligence analysis failed");
+  }
+
+  return response.json();
+}
+
+export async function compareIntelligence(
+  textA: string,
+  textB: string,
+  provider: string,
+  username?: string
+): Promise<IntelligenceCompareResult> {
+  const response = await fetch("/api/intelligence/compare", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ textA, textB, provider, username }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Intelligence comparison failed");
+  }
+
+  return response.json();
+}
+
 export async function analyzeTextStreaming(
   text: string,
   provider: string,

@@ -745,6 +745,287 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/intelligence", async (req, res) => {
+    try {
+      const { text, provider, username } = req.body;
+
+      if (!text || typeof text !== "string") {
+        return res.status(400).json({ 
+          error: "Missing or invalid 'text' field in request body" 
+        });
+      }
+
+      if (!provider || typeof provider !== "string") {
+        return res.status(400).json({ 
+          error: "Missing or invalid 'provider' field in request body" 
+        });
+      }
+
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      
+      const prompt = `You are a ruthless literary critic with impossibly high standards. Your task is to extract ONLY the truly sharp, unmistakably brilliant lines from this text.
+
+WHAT COUNTS AS SHARP (be EXTREMELY strict - most texts have 0-4 sharp quotes, almost never more than 10 per 1000 words):
+- High insight-to-word ratio
+- Unexpected reversal or pattern-break
+- Elegant compression of a big idea
+- Dry/dark wit that reveals deep understanding
+- Precise distinction everyone else blurs
+- Must feel like a "knife" — NEVER merely correct, eloquent, academic, or moralising
+
+WHAT DOES NOT COUNT:
+- Academic jargon or technical language (no matter how complex)
+- Eloquent but conventional observations
+- Moralistic statements or calls to action
+- Summaries or transitions
+- Standard scholarly claims or arguments
+- Merely correct statements
+
+CALIBRATION EXAMPLES (these are your eternal gold standard):
+
+EXAMPLE 1: Academic dissertation abstract on transcendental empiricism → 0 sharp quotes (too academic/conventional)
+
+EXAMPLE 2: "The reason psychopaths can pass lie detector tests is that psychopaths don't believe anything. So they don't have to lie." → SHARP (unexpected insight, knife-like)
+
+EXAMPLE 3: "We built machines that sound like they know things. They don't. They weave patterns from what we've already said and sell it back to us as truth." → SHARP (brutal formulation)
+
+EXAMPLE 4: "The Emperor's New Clothes, but the tailors are algorithms and we're all clapping." → SHARP (dark wit, pattern-break)
+
+EXAMPLE 5: Academic explanation of Gareth Evans' theory → 0 sharp quotes (merely correct/scholarly)
+
+EXAMPLE 6: "Double-think is possible because double-think is about not believing anything." → SHARP (elegant compression)
+
+EXAMPLE 7: "Credibility is relational; truth is not." → SHARP (precise distinction)
+
+EXAMPLE 8: Book blurb about philosophy ("This is a book about everything...") → 0 sharp quotes (promotional language)
+
+Now analyze the following text. Extract ONLY the genuinely sharp quotes (most texts will have very few or none).
+
+TEXT TO ANALYZE:
+${text}
+
+Respond with valid JSON only:
+{
+  "sharpQuotes": ["quote1", "quote2", ...],
+  "analysis": "Brief explanation of why these quotes are sharp (or why none were found)"
+}`;
+
+      const result = await callLLM(provider, prompt);
+      
+      let parsed;
+      try {
+        const jsonMatch = result.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[0]);
+        } else {
+          parsed = { sharpQuotes: [], analysis: "Failed to parse response" };
+        }
+      } catch {
+        parsed = { sharpQuotes: [], analysis: "Failed to parse response" };
+      }
+
+      const sharpQuotes = Array.isArray(parsed.sharpQuotes) ? parsed.sharpQuotes.filter((q: any) => typeof q === 'string' && q.trim()) : [];
+      const density = wordCount > 0 ? (sharpQuotes.length * 1000) / wordCount : 0;
+      
+      let score: number;
+      if (density <= 1) {
+        score = Math.round(density * 30);
+      } else if (density <= 3) {
+        score = Math.round(30 + ((density - 1) / 2) * 35);
+      } else if (density <= 6) {
+        score = Math.round(65 + ((density - 3) / 3) * 25);
+      } else {
+        score = Math.min(100, Math.round(90 + ((density - 6) / 4) * 10));
+      }
+
+      const response = {
+        wordCount,
+        sharpQuotes,
+        quoteCount: sharpQuotes.length,
+        density: parseFloat(density.toFixed(2)),
+        score,
+        analysis: parsed.analysis || ""
+      };
+
+      if (username && typeof username === "string" && username.trim().length >= 2) {
+        try {
+          const cleanUsername = username.trim().toLowerCase();
+          let user = await storage.getUserByUsername(cleanUsername);
+          if (!user) {
+            user = await storage.createUser({ username: cleanUsername });
+          }
+          
+          const inputPreview = text.substring(0, 200) + (text.length > 200 ? "..." : "");
+          
+          await storage.createAnalysisHistory({
+            userId: user.id,
+            analysisType: "intelligence",
+            provider: provider,
+            inputPreview: inputPreview,
+            outputData: response
+          });
+        } catch (saveError) {
+          console.error("Failed to save to history:", saveError);
+        }
+      }
+
+      res.json(response);
+    } catch (error: any) {
+      console.error("Intelligence analysis error:", error);
+      res.status(500).json({ 
+        error: error.message || "Intelligence analysis failed" 
+      });
+    }
+  });
+
+  app.post("/api/intelligence/compare", async (req, res) => {
+    try {
+      const { textA, textB, provider, username } = req.body;
+
+      if (!textA || typeof textA !== "string" || !textB || typeof textB !== "string") {
+        return res.status(400).json({ 
+          error: "Missing or invalid text fields in request body" 
+        });
+      }
+
+      if (!provider || typeof provider !== "string") {
+        return res.status(400).json({ 
+          error: "Missing or invalid 'provider' field in request body" 
+        });
+      }
+
+      const wordCountA = textA.split(/\s+/).filter(Boolean).length;
+      const wordCountB = textB.split(/\s+/).filter(Boolean).length;
+      
+      const prompt = `You are a ruthless literary critic with impossibly high standards. Your task is to extract ONLY the truly sharp, unmistakably brilliant lines from TWO texts and compare them.
+
+WHAT COUNTS AS SHARP (be EXTREMELY strict):
+- High insight-to-word ratio
+- Unexpected reversal or pattern-break
+- Elegant compression of a big idea
+- Dry/dark wit that reveals deep understanding
+- Precise distinction everyone else blurs
+- Must feel like a "knife" — NEVER merely correct, eloquent, academic, or moralising
+
+WHAT DOES NOT COUNT:
+- Academic jargon (no matter how complex)
+- Eloquent but conventional observations
+- Moralistic statements
+- Standard scholarly claims
+
+TEXT A:
+${textA}
+
+---
+
+TEXT B:
+${textB}
+
+Respond with valid JSON only:
+{
+  "textA": {
+    "sharpQuotes": ["quote1", "quote2", ...],
+    "analysis": "Brief explanation"
+  },
+  "textB": {
+    "sharpQuotes": ["quote1", "quote2", ...],
+    "analysis": "Brief explanation"
+  },
+  "verdict": "One-sentence comparative verdict"
+}`;
+
+      const result = await callLLM(provider, prompt);
+      
+      let parsed;
+      try {
+        const jsonMatch = result.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[0]);
+        } else {
+          parsed = { textA: { sharpQuotes: [], analysis: "" }, textB: { sharpQuotes: [], analysis: "" }, verdict: "" };
+        }
+      } catch {
+        parsed = { textA: { sharpQuotes: [], analysis: "" }, textB: { sharpQuotes: [], analysis: "" }, verdict: "" };
+      }
+
+      const quotesA = Array.isArray(parsed.textA?.sharpQuotes) ? parsed.textA.sharpQuotes.filter((q: any) => typeof q === 'string' && q.trim()) : [];
+      const quotesB = Array.isArray(parsed.textB?.sharpQuotes) ? parsed.textB.sharpQuotes.filter((q: any) => typeof q === 'string' && q.trim()) : [];
+      
+      const densityA = wordCountA > 0 ? (quotesA.length * 1000) / wordCountA : 0;
+      const densityB = wordCountB > 0 ? (quotesB.length * 1000) / wordCountB : 0;
+      
+      const calculateScore = (density: number): number => {
+        if (density <= 1) return Math.round(density * 30);
+        if (density <= 3) return Math.round(30 + ((density - 1) / 2) * 35);
+        if (density <= 6) return Math.round(65 + ((density - 3) / 3) * 25);
+        return Math.min(100, Math.round(90 + ((density - 6) / 4) * 10));
+      };
+
+      const scoreA = calculateScore(densityA);
+      const scoreB = calculateScore(densityB);
+      
+      let winner: string;
+      const densityDiff = Math.abs(densityA - densityB);
+      if (densityDiff <= 0.3) {
+        winner = "Essentially equal";
+      } else if (densityA > densityB) {
+        winner = "Text A is sharper";
+      } else {
+        winner = "Text B is sharper";
+      }
+
+      const response = {
+        textA: {
+          wordCount: wordCountA,
+          sharpQuotes: quotesA,
+          quoteCount: quotesA.length,
+          density: parseFloat(densityA.toFixed(2)),
+          score: scoreA,
+          analysis: parsed.textA?.analysis || ""
+        },
+        textB: {
+          wordCount: wordCountB,
+          sharpQuotes: quotesB,
+          quoteCount: quotesB.length,
+          density: parseFloat(densityB.toFixed(2)),
+          score: scoreB,
+          analysis: parsed.textB?.analysis || ""
+        },
+        winner,
+        verdict: parsed.verdict || ""
+      };
+
+      if (username && typeof username === "string" && username.trim().length >= 2) {
+        try {
+          const cleanUsername = username.trim().toLowerCase();
+          let user = await storage.getUserByUsername(cleanUsername);
+          if (!user) {
+            user = await storage.createUser({ username: cleanUsername });
+          }
+          
+          const inputPreview = `Text A: ${textA.substring(0, 100)}... vs Text B: ${textB.substring(0, 100)}...`;
+          
+          await storage.createAnalysisHistory({
+            userId: user.id,
+            analysisType: "intelligence_compare",
+            provider: provider,
+            inputPreview: inputPreview,
+            outputData: response
+          });
+        } catch (saveError) {
+          console.error("Failed to save to history:", saveError);
+        }
+      }
+
+      res.json(response);
+    } catch (error: any) {
+      console.error("Intelligence comparison error:", error);
+      res.status(500).json({ 
+        error: error.message || "Intelligence comparison failed" 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

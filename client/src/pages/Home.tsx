@@ -61,7 +61,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { analyzeText, analyzeTextStreaming, AnalysisResult } from "@/lib/llm";
+import { analyzeText, analyzeTextStreaming, AnalysisResult, measureIntelligence, compareIntelligence, IntelligenceResult, IntelligenceCompareResult } from "@/lib/llm";
 
 type LLM = "grok" | "openai" | "anthropic" | "perplexity" | "deepseek";
 
@@ -231,6 +231,14 @@ export default function Home() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null);
   const [historyTypeFilter, setHistoryTypeFilter] = useState<string>("all");
+  
+  const [showIntelligenceDialog, setShowIntelligenceDialog] = useState(false);
+  const [intelligenceTab, setIntelligenceTab] = useState<"single" | "compare">("single");
+  const [intelligenceTextA, setIntelligenceTextA] = useState("");
+  const [intelligenceTextB, setIntelligenceTextB] = useState("");
+  const [intelligenceResult, setIntelligenceResult] = useState<IntelligenceResult | null>(null);
+  const [intelligenceCompareResult, setIntelligenceCompareResult] = useState<IntelligenceCompareResult | null>(null);
+  const [isAnalyzingIntelligence, setIsAnalyzingIntelligence] = useState(false);
   
   const { toast } = useToast();
   
@@ -736,6 +744,61 @@ export default function Home() {
     }
   };
 
+  const handleMeasureIntelligence = async () => {
+    const textToAnalyze = intelligenceTab === "single" ? (intelligenceTextA || text) : intelligenceTextA;
+    
+    if (!textToAnalyze.trim()) {
+      toast({
+        title: "Text required",
+        description: "Please enter or paste text to analyze",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsAnalyzingIntelligence(true);
+    setIntelligenceResult(null);
+    setIntelligenceCompareResult(null);
+    
+    try {
+      if (intelligenceTab === "single") {
+        const result = await measureIntelligence(textToAnalyze, selectedLLM, username || undefined);
+        setIntelligenceResult(result);
+        
+        toast({
+          title: "Intelligence Measured",
+          description: `Score: ${result.score}/100 (${result.quoteCount} sharp quotes found)`,
+        });
+      } else {
+        if (!intelligenceTextB.trim()) {
+          toast({
+            title: "Text B required",
+            description: "Please provide both texts for comparison",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const result = await compareIntelligence(textToAnalyze, intelligenceTextB, selectedLLM, username || undefined);
+        setIntelligenceCompareResult(result);
+        
+        toast({
+          title: "Comparison Complete",
+          description: result.winner,
+        });
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        title: "Analysis Failed",
+        description: error.message || "Unknown error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzingIntelligence(false);
+    }
+  };
+
   const handleSaveStylometricProfile = async () => {
     if (!username) {
       toast({
@@ -897,6 +960,13 @@ ${result.analyzer}
       setStylometricsText(text);
     }
     setShowStylometricsDialog(true);
+  };
+
+  const openIntelligenceWithText = () => {
+    if (text.trim()) {
+      setIntelligenceTextA(text);
+    }
+    setShowIntelligenceDialog(true);
   };
 
   return (
@@ -1276,6 +1346,15 @@ ${result.analyzer}
                   >
                     <BarChart3 className="w-5 h-5 mr-2" />
                     STYLOMETRICS
+                  </Button>
+                  <Button 
+                    onClick={openIntelligenceWithText}
+                    disabled={isProcessing}
+                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:shadow-lg transition-all hover:scale-105"
+                    data-testid="button-intelligence"
+                  >
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    INTELLIGENCE
                   </Button>
                 </div>
               </div>
@@ -1685,6 +1764,235 @@ ${result.analyzer}
                   <>
                     <BarChart3 className="w-4 h-4 mr-2" />
                     {stylometricsTab === "single" ? "Analyze" : "Compare"}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Intelligence Meter Dialog */}
+      <Dialog open={showIntelligenceDialog} onOpenChange={setShowIntelligenceDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Sparkles className="w-6 h-6 text-amber-600" />
+              Intelligence Meter
+            </DialogTitle>
+            <DialogDescription>
+              Extract truly sharp, knife-like insights and measure intellectual density.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Tabs value={intelligenceTab} onValueChange={(v) => setIntelligenceTab(v as "single" | "compare")} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="single" className="gap-2">
+                <BookOpen className="w-4 h-4" />
+                Measure Intelligence
+              </TabsTrigger>
+              <TabsTrigger value="compare" className="gap-2">
+                <GitCompare className="w-4 h-4" />
+                Compare Intelligence
+              </TabsTrigger>
+            </TabsList>
+            
+            <div className="flex-1 overflow-y-auto mt-4">
+              <TabsContent value="single" className="mt-0 space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="intelligence-text">Text to Analyze</Label>
+                    <span className="text-sm text-muted-foreground">
+                      {(intelligenceTextA || text).split(/\s+/).filter(Boolean).length} words
+                    </span>
+                  </div>
+                  <Textarea
+                    id="intelligence-text"
+                    placeholder="Paste text here to measure its intellectual sharpness (or leave empty to use main input)..."
+                    value={intelligenceTextA}
+                    onChange={(e) => setIntelligenceTextA(e.target.value)}
+                    className="min-h-[200px] font-serif"
+                    data-testid="textarea-intelligence"
+                  />
+                  {!intelligenceTextA && text && (
+                    <p className="text-xs text-muted-foreground">Will use main input text ({text.split(/\s+/).filter(Boolean).length} words)</p>
+                  )}
+                </div>
+                
+                {intelligenceResult && (
+                  <div className="space-y-4 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-lg text-amber-800">Intelligence Score</h4>
+                      <div className="text-4xl font-bold text-amber-600">
+                        {intelligenceResult.score}/100
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className="p-3 bg-white/60 rounded-lg">
+                        <div className="text-2xl font-bold text-amber-700">{intelligenceResult.wordCount}</div>
+                        <div className="text-xs text-muted-foreground">Total Words</div>
+                      </div>
+                      <div className="p-3 bg-white/60 rounded-lg">
+                        <div className="text-2xl font-bold text-amber-700">{intelligenceResult.quoteCount}</div>
+                        <div className="text-xs text-muted-foreground">Sharp Quotes</div>
+                      </div>
+                      <div className="p-3 bg-white/60 rounded-lg">
+                        <div className="text-2xl font-bold text-amber-700">{intelligenceResult.density}</div>
+                        <div className="text-xs text-muted-foreground">Per 1000 Words</div>
+                      </div>
+                    </div>
+                    
+                    {intelligenceResult.sharpQuotes.length > 0 ? (
+                      <div className="space-y-2">
+                        <Label>Sharp Quotes Found:</Label>
+                        <ScrollArea className="h-[200px] border rounded-lg p-3 bg-white/60">
+                          <ol className="list-decimal list-inside space-y-2">
+                            {intelligenceResult.sharpQuotes.map((quote, i) => (
+                              <li key={i} className="text-sm font-serif italic text-gray-700">
+                                "{quote}"
+                              </li>
+                            ))}
+                          </ol>
+                        </ScrollArea>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No unmistakably sharp quotes detected in this text.
+                      </div>
+                    )}
+                    
+                    {intelligenceResult.analysis && (
+                      <p className="text-sm text-muted-foreground italic">{intelligenceResult.analysis}</p>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="compare" className="mt-0 space-y-4">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-blue-800">Text A</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Text *</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {intelligenceTextA.split(/\s+/).filter(Boolean).length} words
+                        </span>
+                      </div>
+                      <Textarea
+                        placeholder="Paste Text A..."
+                        value={intelligenceTextA}
+                        onChange={(e) => setIntelligenceTextA(e.target.value)}
+                        className="min-h-[150px] font-serif text-sm"
+                        data-testid="textarea-intel-a"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <h4 className="font-semibold text-purple-800">Text B</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Text *</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {intelligenceTextB.split(/\s+/).filter(Boolean).length} words
+                        </span>
+                      </div>
+                      <Textarea
+                        placeholder="Paste Text B..."
+                        value={intelligenceTextB}
+                        onChange={(e) => setIntelligenceTextB(e.target.value)}
+                        className="min-h-[150px] font-serif text-sm"
+                        data-testid="textarea-intel-b"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {intelligenceCompareResult && (
+                  <div className="space-y-4 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-amber-800 mb-2">{intelligenceCompareResult.winner}</div>
+                      <p className="text-sm text-muted-foreground italic">{intelligenceCompareResult.verdict}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-blue-100/50 rounded-lg border border-blue-200">
+                        <h5 className="font-semibold text-blue-800 mb-2">Text A: {intelligenceCompareResult.textA.score}/100</h5>
+                        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                          <div>Words: {intelligenceCompareResult.textA.wordCount}</div>
+                          <div>Density: {intelligenceCompareResult.textA.density}</div>
+                        </div>
+                        {intelligenceCompareResult.textA.sharpQuotes.length > 0 ? (
+                          <ScrollArea className="h-[120px]">
+                            <ol className="list-decimal list-inside space-y-1 text-xs">
+                              {intelligenceCompareResult.textA.sharpQuotes.map((q, i) => (
+                                <li key={i} className="italic">"{q}"</li>
+                              ))}
+                            </ol>
+                          </ScrollArea>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No sharp quotes found</p>
+                        )}
+                      </div>
+                      
+                      <div className="p-4 bg-purple-100/50 rounded-lg border border-purple-200">
+                        <h5 className="font-semibold text-purple-800 mb-2">Text B: {intelligenceCompareResult.textB.score}/100</h5>
+                        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                          <div>Words: {intelligenceCompareResult.textB.wordCount}</div>
+                          <div>Density: {intelligenceCompareResult.textB.density}</div>
+                        </div>
+                        {intelligenceCompareResult.textB.sharpQuotes.length > 0 ? (
+                          <ScrollArea className="h-[120px]">
+                            <ol className="list-decimal list-inside space-y-1 text-xs">
+                              {intelligenceCompareResult.textB.sharpQuotes.map((q, i) => (
+                                <li key={i} className="italic">"{q}"</li>
+                              ))}
+                            </ol>
+                          </ScrollArea>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No sharp quotes found</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </div>
+          </Tabs>
+          
+          <div className="flex justify-between items-center pt-4 border-t mt-4">
+            <div className="text-sm text-muted-foreground">
+              Using: <span className="font-semibold uppercase">{selectedLLM}</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIntelligenceResult(null);
+                  setIntelligenceCompareResult(null);
+                  setIntelligenceTextA("");
+                  setIntelligenceTextB("");
+                }}
+              >
+                Clear
+              </Button>
+              <Button
+                onClick={handleMeasureIntelligence}
+                disabled={isAnalyzingIntelligence}
+                className="bg-gradient-to-r from-amber-600 to-orange-600 text-white"
+                data-testid="button-measure-intelligence"
+              >
+                {isAnalyzingIntelligence ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Measuring...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {intelligenceTab === "single" ? "Measure Intelligence" : "Compare Intelligence"}
                   </>
                 )}
               </Button>
