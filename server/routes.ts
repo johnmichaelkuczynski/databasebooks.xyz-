@@ -243,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const fullReport = formatSingleTextReport(authorName, sourceTitle || '', rawFeatures, llmResult);
 
-      res.json({
+      const responseData = {
         success: true,
         report: fullReport,
         data: {
@@ -255,7 +255,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rawFeatures,
           ...llmResult
         }
-      });
+      };
+
+      // Auto-save to history if user is logged in
+      if (username && typeof username === "string" && username.trim().length >= 2) {
+        try {
+          const cleanUsername = username.trim().toLowerCase();
+          let user = await storage.getUserByUsername(cleanUsername);
+          if (!user) {
+            user = await storage.createUser({ username: cleanUsername });
+          }
+          
+          const inputPreview = `Stylometrics: ${authorName} - ${text.substring(0, 150)}...`;
+          
+          await storage.createAnalysisHistory({
+            userId: user.id,
+            analysisType: "stylometrics",
+            provider: provider || "grok",
+            inputPreview: inputPreview,
+            outputData: responseData.data
+          });
+        } catch (saveError) {
+          console.error("Failed to save stylometrics to history:", saveError);
+        }
+      }
+
+      res.json(responseData);
     } catch (error: any) {
       console.error("Stylometrics analysis error:", error);
       res.status(500).json({ 
@@ -449,11 +474,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         llmResult
       );
 
-      res.json({
+      const responseData = {
         success: true,
         report: fullReport,
         data: llmResult
-      });
+      };
+
+      // Auto-save to history if user is logged in
+      if (username && typeof username === "string" && username.trim().length >= 2) {
+        try {
+          const cleanUsername = username.trim().toLowerCase();
+          let user = await storage.getUserByUsername(cleanUsername);
+          if (!user) {
+            user = await storage.createUser({ username: cleanUsername });
+          }
+          
+          const inputPreview = `Stylometrics Compare: ${textA.authorName} vs ${textB.authorName}`;
+          
+          await storage.createAnalysisHistory({
+            userId: user.id,
+            analysisType: "stylometrics_compare",
+            provider: provider || "grok",
+            inputPreview: inputPreview,
+            outputData: responseData.data
+          });
+        } catch (saveError) {
+          console.error("Failed to save stylometrics comparison to history:", saveError);
+        }
+      }
+
+      res.json(responseData);
     } catch (error: any) {
       console.error("Comparison error:", error);
       res.status(500).json({ 
