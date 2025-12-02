@@ -51,6 +51,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import {
@@ -243,6 +244,9 @@ export default function Home() {
   const [isDraggingIntelB, setIsDraggingIntelB] = useState(false);
   const intelFileRefA = useRef<HTMLInputElement>(null);
   const intelFileRefB = useRef<HTMLInputElement>(null);
+  
+  const [allDayMode, setAllDayMode] = useState(false);
+  const [allDayProgress, setAllDayProgress] = useState<{current: number, total: number, timeRemaining: string} | null>(null);
   
   const { toast } = useToast();
   
@@ -542,12 +546,22 @@ export default function Home() {
               }
             }
             
-            // Wait 20 seconds between chunks to prevent API rate limiting (except after last chunk)
+            // Wait between chunks to prevent API rate limiting (except after last chunk)
+            // All Day Mode: 60 seconds | Normal: 20 seconds
             if (i < chunksToProcess.length - 1) {
-              const DELAY_SECONDS = 20;
+              const DELAY_SECONDS = allDayMode ? 60 : 20;
+              const remainingChunks = chunksToProcess.length - (i + 1);
+              const estimatedMinutes = Math.ceil((remainingChunks * (DELAY_SECONDS + 30)) / 60); // ~30s per chunk processing + delay
+              
               for (let countdown = DELAY_SECONDS; countdown > 0; countdown--) {
-                const waitDisplay = updatedDisplay + `\n\n---\n⏳ **Waiting ${countdown} seconds before next chunk to prevent rate limiting...**`;
+                const modeLabel = allDayMode ? "🌙 ALL DAY MODE" : "";
+                const waitDisplay = updatedDisplay + `\n\n---\n${modeLabel}\n⏳ **Waiting ${countdown} seconds before next chunk...**\n📊 Progress: ${i + 1}/${chunksToProcess.length} chunks complete\n⏱️ Estimated time remaining: ~${estimatedMinutes} minutes`;
                 setStreamingOutput(waitDisplay);
+                setAllDayProgress({
+                  current: i + 1,
+                  total: chunksToProcess.length,
+                  timeRemaining: `~${estimatedMinutes} min`
+                });
                 await new Promise(resolve => setTimeout(resolve, 1000));
               }
             }
@@ -625,6 +639,7 @@ export default function Home() {
       setIsProcessing(false);
       setCurrentChunkIndex(0);
       setTotalChunksToProcess(0);
+      setAllDayProgress(null);
     }
   };
 
@@ -1321,20 +1336,56 @@ ${result.analyzer}
                         <span className="text-red-600 text-xs">Select at least one chunk</span>
                       )}
                     </div>
+                    
+                    <div className="mt-3 pt-3 border-t border-orange-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Switch
+                            id="all-day-mode"
+                            checked={allDayMode}
+                            onCheckedChange={setAllDayMode}
+                            data-testid="switch-all-day-mode"
+                          />
+                          <Label htmlFor="all-day-mode" className="font-bold text-orange-800 cursor-pointer">
+                            🌙 ALL DAY MODE
+                          </Label>
+                        </div>
+                        <span className="text-xs text-orange-600">
+                          {allDayMode ? "60s delay (stable)" : "20s delay (faster)"}
+                        </span>
+                      </div>
+                      {allDayMode && (
+                        <p className="text-xs text-orange-700 mt-2 bg-orange-100 p-2 rounded">
+                          All Day Mode: 60-second breaks between chunks to prevent crashes. 
+                          Perfect for processing entire books overnight.
+                          {selectedChunks.length > 0 && (
+                            <span className="block mt-1 font-semibold">
+                              Estimated time: ~{Math.ceil(selectedChunks.length * 1.5)} minutes for {selectedChunks.length} chunks
+                            </span>
+                          )}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
                 
                 {isProcessing && totalChunksToProcess > 0 && (
-                  <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+                  <div className={`rounded-lg p-4 border-2 ${allDayMode ? 'bg-purple-50 border-purple-300' : 'bg-blue-50 border-blue-200'}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold text-blue-800">
+                      <span className={`font-semibold ${allDayMode ? 'text-purple-800' : 'text-blue-800'}`}>
+                        {allDayMode && '🌙 ALL DAY MODE - '}
                         Processing Chunk {currentChunkIndex} of {totalChunksToProcess}
                       </span>
-                      <span className="text-sm text-blue-600">
+                      <span className={`text-sm ${allDayMode ? 'text-purple-600' : 'text-blue-600'}`}>
                         {Math.round((currentChunkIndex / totalChunksToProcess) * 100)}%
                       </span>
                     </div>
                     <Progress value={(currentChunkIndex / totalChunksToProcess) * 100} className="h-2" />
+                    {allDayMode && allDayProgress && (
+                      <p className="text-xs text-purple-600 mt-2">
+                        ⏱️ Time remaining: {allDayProgress.timeRemaining} • Leave running - will complete automatically
+                      </p>
+                    )}
                   </div>
                 )}
                 
