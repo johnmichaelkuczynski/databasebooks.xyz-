@@ -165,8 +165,17 @@ API keys are stored client-side in localStorage via Zustand persist middleware a
    - Determines winner based on density difference (0.3 threshold for "equal")
    - Uses same calibration and scoring formula as single-text analysis
 
+### All Day Mode (December 2024)
+- Toggle for batch processing very large texts (40,000+ words)
+- Splits text into ~1000-word chunks automatically
+- All Day Mode ON: 60-second delay between chunks (stable, prevents crashes)
+- All Day Mode OFF: 20-second delay between chunks (faster)
+- Shows estimated time remaining and live progress
+- Incremental saving after each chunk - safe to leave running overnight
+- Use case: Process entire books into 40+ databases/quote sets unattended
+
 ### Design Decisions
 - Username-only authentication (no password required)
 - Incremental saving for DATABASE function (each chunk saved immediately)
-- 20-second delay between chunk processing to prevent API rate limits
+- 20-second delay between chunk processing to prevent API rate limits (60s in All Day Mode)
 - History endpoints validate ownership before read/delete operations
