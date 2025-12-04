@@ -467,7 +467,8 @@ export default function Home() {
               annotatedQuotes: [],
               summary: accumulatedOutput.substring(0, 1000),
               database: accumulatedOutput,
-              analyzer: accumulatedOutput
+              analyzer: accumulatedOutput,
+              views: []
             });
           }
         },

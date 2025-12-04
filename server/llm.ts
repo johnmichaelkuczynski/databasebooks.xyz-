@@ -320,7 +320,8 @@ function parseJSON(content: string): AnalysisResult {
             annotatedQuotes: [],
             summary: "",
             database: rawContent,  // Put raw content in database field
-            analyzer: ""
+            analyzer: "",
+            views: []
           };
         }
       }
@@ -332,7 +333,8 @@ function parseJSON(content: string): AnalysisResult {
       annotatedQuotes: [],
       summary: "",
       database: content,  // Put raw content in database field  
-      analyzer: ""
+      analyzer: "",
+      views: []
     };
   }
 }
