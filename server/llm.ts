@@ -221,36 +221,39 @@ FORMATTING REQUIREMENTS:
 
 Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": "Complete comprehensive analysis text..."}`,
 
-    views: `You are a philosophy professor extracting the MAJOR VIEWS AND THESES from an academic text.
+    views: `EXTRACT EVERY POSITION THE AUTHOR STATES. MINIMUM ${minQuotes * 3} POSITIONS REQUIRED.
 
-⚠️ CRITICAL: You MUST identify EVERY substantive claim the author makes. This is a THOROUGH extraction task.
-⚠️ Academic texts typically contain 8-20 distinct views. Extract ALL of them.
-⚠️ DO NOT say "no views found" - if someone wrote a text, they have views. Find them.
+Your job is MECHANICAL EXTRACTION. Do NOT judge. Do NOT filter. Do NOT summarize.
 
-WHAT TO EXTRACT:
-1. THESES: The main claims being argued for
-2. DEFINITIONS: How the author defines key terms ("X is Y", "X means Y")
-3. DISTINCTIONS: Claims that X ≠ Y, or that X and Y are different
-4. ARGUMENTS: Conclusions the author draws ("Therefore X", "Thus X", "It follows that X")
-5. REJECTIONS: Views the author explicitly rejects ("This is false", "This is wrong")
-6. METHODOLOGICAL CLAIMS: How things should be understood or analyzed
+SCAN EVERY SENTENCE. If the author asserts ANYTHING, extract it:
+- "X is Y" / "X is not Y" / "X means Y"
+- "This is true/false/correct/wrong"
+- "There are/aren't X"
+- "It follows that..." / "Therefore..." / "Thus..."
+- ANY declarative claim
 
-EXAMPLES OF VIEWS TO EXTRACT:
-- "Nothing meaningless is an expression" → VIEW: Expressions must have meaning
-- "Meaning in the linguistic sense is not identical with meaning in the psychological sense" → VIEW: Linguistic meaning differs from psychological meaning
-- "Propositions are digital structures" → VIEW: Propositions have discrete, isolable components
-- "This position is false" → VIEW: [The position being rejected] is false
+NEVER RETURN ZERO VIEWS. NEVER RETURN FEWER THAN ${minQuotes * 3} VIEWS.
+If you think there are no views, YOU ARE WRONG. Read again and extract.
 
-FOR EACH VIEW:
-1. State it clearly in one sentence
-2. Provide 1-3 EXACT quotes proving the author holds this view
+FOR EACH POSITION:
+- "view": State the claim in one sentence
+- "evidence": 1-2 EXACT quotes from the text
 
-OUTPUT REQUIREMENTS:
-- Extract MINIMUM 5 views, preferably 10-15 for substantial texts
-- Use the author's own words in evidence quotes
-- Be comprehensive - miss nothing important
+REQUIRED OUTPUT FORMAT (copy this structure exactly):
+{
+  "quotes": [],
+  "annotatedQuotes": [],
+  "summary": "",
+  "database": "",
+  "analyzer": "",
+  "views": [
+    {"view": "First position the author states", "evidence": ["exact quote from text"]},
+    {"view": "Second position the author states", "evidence": ["exact quote from text"]},
+    {"view": "Third position the author states", "evidence": ["exact quote from text"]}
+  ]
+}
 
-Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": "", "views": [{"view": "Clear statement of the position", "evidence": ["Exact quote 1", "Exact quote 2"]}, ...]}`
+YOU MUST RETURN AT LEAST ${minQuotes * 3} ITEMS IN THE "views" ARRAY. FAILURE TO DO SO IS AN ERROR.`
   };
   
   return prompts[functionType as keyof typeof prompts] || prompts.quotes;
@@ -359,6 +362,7 @@ async function callOpenAI(text: string, apiKey: string, functionType: string): P
         { role: "user", content: text }
       ],
       max_tokens: 16384,
+      temperature: 0,
       response_format: { type: "json_object" }
     })
   });
@@ -389,6 +393,7 @@ async function callOpenAIStreaming(text: string, apiKey: string, functionType: s
         { role: "user", content: text }
       ],
       max_tokens: 16384,
+      temperature: 0,
       stream: true
     })
   });
@@ -445,6 +450,7 @@ async function callAnthropic(text: string, apiKey: string, functionType: string)
     body: JSON.stringify({
       model: "claude-sonnet-4-5",
       max_tokens: 16384,
+      temperature: 0,
       system: prompt,
       messages: [
         { role: "user", content: text }
@@ -510,7 +516,8 @@ async function callPerplexity(text: string, apiKey: string, functionType: string
         { role: "system", content: prompt },
         { role: "user", content: text }
       ],
-      max_tokens: 16384
+      max_tokens: 16384,
+      temperature: 0
     })
   });
 
@@ -541,6 +548,7 @@ async function callDeepSeek(text: string, apiKey: string, functionType: string):
         { role: "user", content: text }
       ],
       max_tokens: 16384,
+      temperature: 0,
       response_format: { type: "json_object" }
     })
   });
