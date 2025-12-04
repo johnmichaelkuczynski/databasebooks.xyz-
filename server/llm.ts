@@ -221,31 +221,34 @@ FORMATTING REQUIREMENTS:
 
 Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": "Complete comprehensive analysis text..."}`,
 
-    views: `Identify ALL MAJOR VIEWS, POSITIONS, AND CLAIMS being advocated in this text.
+    views: `You are a philosophy professor extracting the MAJOR VIEWS AND THESES from an academic text.
 
-For each distinct view/position the author is arguing for:
-1. State the view clearly and concisely (one sentence)
-2. Provide 1-3 direct quotes from the text that prove this is the author's actual position
+⚠️ CRITICAL: You MUST identify EVERY substantive claim the author makes. This is a THOROUGH extraction task.
+⚠️ Academic texts typically contain 8-20 distinct views. Extract ALL of them.
+⚠️ DO NOT say "no views found" - if someone wrote a text, they have views. Find them.
 
-WHAT COUNTS AS A "VIEW":
-- Claims the author is arguing FOR (not just describing)
-- Positions the author endorses or defends
-- Theses being advanced
-- Conclusions the author draws
-- Recommendations or prescriptions offered
+WHAT TO EXTRACT:
+1. THESES: The main claims being argued for
+2. DEFINITIONS: How the author defines key terms ("X is Y", "X means Y")
+3. DISTINCTIONS: Claims that X ≠ Y, or that X and Y are different
+4. ARGUMENTS: Conclusions the author draws ("Therefore X", "Thus X", "It follows that X")
+5. REJECTIONS: Views the author explicitly rejects ("This is false", "This is wrong")
+6. METHODOLOGICAL CLAIMS: How things should be understood or analyzed
 
-WHAT DOES NOT COUNT:
-- Neutral descriptions of what others believe
-- Background information or context
-- Views the author is arguing AGAINST (unless explicitly adopted)
-- Mere observations without advocacy
+EXAMPLES OF VIEWS TO EXTRACT:
+- "Nothing meaningless is an expression" → VIEW: Expressions must have meaning
+- "Meaning in the linguistic sense is not identical with meaning in the psychological sense" → VIEW: Linguistic meaning differs from psychological meaning
+- "Propositions are digital structures" → VIEW: Propositions have discrete, isolable components
+- "This position is false" → VIEW: [The position being rejected] is false
 
-BE THOROUGH: A substantial text may contain 5-15 distinct major views. Don't stop at 2-3.
+FOR EACH VIEW:
+1. State it clearly in one sentence
+2. Provide 1-3 EXACT quotes proving the author holds this view
 
-EVIDENCE REQUIREMENTS:
-- Use EXACT quotes from the text
-- Each quote must clearly show the author advocating/endorsing the view
-- Quotes should be the strongest available evidence for that position
+OUTPUT REQUIREMENTS:
+- Extract MINIMUM 5 views, preferably 10-15 for substantial texts
+- Use the author's own words in evidence quotes
+- Be comprehensive - miss nothing important
 
 Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": "", "views": [{"view": "Clear statement of the position", "evidence": ["Exact quote 1", "Exact quote 2"]}, ...]}`
   };
