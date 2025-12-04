@@ -113,7 +113,8 @@ function combineResults(results: AnalysisResult[]): AnalysisResult {
     annotatedQuotes: results.flatMap(r => r.annotatedQuotes),
     summary: results.map((r, i) => `[Chunk ${i + 1}]\n${r.summary}`).join('\n\n'),
     database: results.map((r, i) => `═══ CHUNK ${i + 1} ═══\n${r.database}`).join('\n\n'),
-    analyzer: results.map((r, i) => `═══════════════════════════════════════\n           CHUNK ${i + 1} ANALYSIS\n═══════════════════════════════════════\n\n${r.analyzer}`).join('\n\n')
+    analyzer: results.map((r, i) => `═══════════════════════════════════════\n           CHUNK ${i + 1} ANALYSIS\n═══════════════════════════════════════\n\n${r.analyzer}`).join('\n\n'),
+    views: results.flatMap(r => r.views || [])
   };
 }
 
@@ -184,6 +185,18 @@ function buildAccumulatedDisplay(
           output += `                    CHUNK ${i + 1} ANALYSIS\n`;
           output += `═══════════════════════════════════════════════════════════════\n\n`;
           output += `${r.analyzer}\n\n`;
+        });
+        break;
+        
+      case 'views':
+        const allViews = results.flatMap(r => r.views || []);
+        output += `═══ ${allViews.length} MAJOR VIEWS IDENTIFIED ═══\n\n`;
+        allViews.forEach((v, i) => {
+          output += `• VIEW ${i + 1}: ${v.view}\n`;
+          v.evidence.forEach(e => {
+            output += `  EVIDENCE: "${e}"\n`;
+          });
+          output += `\n`;
         });
         break;
     }
@@ -410,7 +423,8 @@ export default function Home() {
       context: "Annotated Quotes", 
       rewrite: "Paragraph Compression",
       database: "Database",
-      analyzer: "Text Analyzer"
+      analyzer: "Text Analyzer",
+      views: "Major Views"
     };
     return typeLabels[type] || type;
   };
@@ -431,7 +445,7 @@ export default function Home() {
   
   const selectedChunks = chunks.filter(c => c.selected);
 
-  const processChunk = async (chunkText: string, functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer'): Promise<AnalysisResult> => {
+  const processChunk = async (chunkText: string, functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer' | 'views'): Promise<AnalysisResult> => {
     return new Promise((resolve, reject) => {
       let accumulatedOutput = "";
       
@@ -462,7 +476,7 @@ export default function Home() {
     });
   };
 
-  const handleProcess = async (functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer') => {
+  const handleProcess = async (functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer' | 'views') => {
     if (!text.trim()) {
       toast({
         title: "Input required",
@@ -898,6 +912,9 @@ ${result.database}
 
 --- TEXT ANALYZER ---
 ${result.analyzer}
+
+--- MAJOR VIEWS ---
+${result.views && result.views.length > 0 ? result.views.map((v, i) => `${i + 1}. VIEW: ${v.view}\n${v.evidence.map(e => `   EVIDENCE: "${e}"`).join('\n')}`).join('\n\n') : 'No views identified'}
 `;
   };
 
@@ -1453,6 +1470,15 @@ ${result.analyzer}
                     <Sparkles className="w-5 h-5 mr-2" />
                     INTELLIGENCE
                   </Button>
+                  <Button 
+                    onClick={() => handleProcess('views')} 
+                    disabled={isProcessing || !text || (needsChunking && selectedChunks.length === 0)}
+                    className="h-12 text-sm font-semibold px-5 bg-gradient-to-r from-teal-600 to-cyan-600 text-white hover:shadow-lg transition-all hover:scale-105"
+                    data-testid="button-views"
+                  >
+                    <Eye className="w-5 h-5 mr-2" />
+                    VIEWS
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -1557,6 +1583,7 @@ ${result.analyzer}
                             <TabTrigger value="summary" icon={<FileText className="w-4 h-4" />} label="Rewrite" />
                             <TabTrigger value="database" icon={<Database className="w-4 h-4" />} label="Database" />
                             <TabTrigger value="analyzer" icon={<Sparkles className="w-4 h-4" />} label="Text Analyzer" />
+                            <TabTrigger value="views" icon={<Eye className="w-4 h-4" />} label="Major Views" />
                           </TabsList>
                         </div>
 
@@ -1623,6 +1650,44 @@ ${result.analyzer}
                                       </p>
                                       <p className="text-sm text-muted-foreground mt-2">
                                         Debug: Result keys: {Object.keys(result).join(', ')}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </TabsContent>
+
+                              <TabsContent value="views" className="mt-0 outline-none h-full" data-testid="tab-views">
+                                <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg p-6 border-2 border-teal-200 shadow-lg">
+                                  {result.views && result.views.length > 0 ? (
+                                    <div className="space-y-6">
+                                      {result.views.map((view, i) => (
+                                        <div key={i} className="bg-white rounded-lg p-5 border-2 border-teal-300 shadow-md" data-testid={`view-item-${i}`}>
+                                          <div className="flex items-start gap-3 mb-4">
+                                            <span className="flex-none w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-white flex items-center justify-center text-sm font-bold shadow-md">
+                                              {i + 1}
+                                            </span>
+                                            <h3 className="text-lg font-semibold text-teal-800 leading-snug">
+                                              {view.view}
+                                            </h3>
+                                          </div>
+                                          <div className="space-y-3 pl-11">
+                                            {view.evidence.map((evidence, j) => (
+                                              <div key={j} className="flex items-start gap-2">
+                                                <span className="text-cyan-600 font-medium text-sm mt-0.5">EVIDENCE:</span>
+                                                <blockquote className="font-serif text-gray-700 italic border-l-2 border-cyan-400 pl-3">
+                                                  "{evidence}"
+                                                </blockquote>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-12">
+                                      <Eye className="w-12 h-12 text-teal-300 mx-auto mb-4" />
+                                      <p className="text-lg text-muted-foreground">
+                                        No views identified yet. Click the VIEWS button to analyze the author's major positions.
                                       </p>
                                     </div>
                                   )}
