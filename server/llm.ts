@@ -4,6 +4,7 @@ export type AnalysisResult = {
   summary: string;
   database: string;
   analyzer: string;
+  views?: { view: string; evidence: string[] }[];
 };
 
 function getSystemPrompt(functionType: string, minQuotes: number): string {
@@ -218,7 +219,35 @@ FORMATTING REQUIREMENTS:
 - Provide extensive detail - this should be a COMPREHENSIVE analysis approximately 3x the length of a standard analysis
 - Be specific, cite exact passages where relevant, and provide deep interpretive insights
 
-Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": "Complete comprehensive analysis text..."}`
+Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": "Complete comprehensive analysis text..."}`,
+
+    views: `Identify ALL MAJOR VIEWS, POSITIONS, AND CLAIMS being advocated in this text.
+
+For each distinct view/position the author is arguing for:
+1. State the view clearly and concisely (one sentence)
+2. Provide 1-3 direct quotes from the text that prove this is the author's actual position
+
+WHAT COUNTS AS A "VIEW":
+- Claims the author is arguing FOR (not just describing)
+- Positions the author endorses or defends
+- Theses being advanced
+- Conclusions the author draws
+- Recommendations or prescriptions offered
+
+WHAT DOES NOT COUNT:
+- Neutral descriptions of what others believe
+- Background information or context
+- Views the author is arguing AGAINST (unless explicitly adopted)
+- Mere observations without advocacy
+
+BE THOROUGH: A substantial text may contain 5-15 distinct major views. Don't stop at 2-3.
+
+EVIDENCE REQUIREMENTS:
+- Use EXACT quotes from the text
+- Each quote must clearly show the author advocating/endorsing the view
+- Quotes should be the strongest available evidence for that position
+
+Output valid JSON: {"quotes": [], "annotatedQuotes": [], "summary": "", "database": "", "analyzer": "", "views": [{"view": "Clear statement of the position", "evidence": ["Exact quote 1", "Exact quote 2"]}, ...]}`
   };
   
   return prompts[functionType as keyof typeof prompts] || prompts.quotes;

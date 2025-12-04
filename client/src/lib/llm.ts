@@ -4,12 +4,13 @@ export type AnalysisResult = {
   summary: string;
   database: string;
   analyzer: string;
+  views?: { view: string; evidence: string[] }[];
 };
 
 export async function analyzeText(
   text: string, 
   provider: string,
-  functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer',
+  functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer' | 'views',
   username?: string
 ): Promise<AnalysisResult> {
   const response = await fetch("/api/analyze", {
@@ -90,7 +91,7 @@ export async function compareIntelligence(
 export async function analyzeTextStreaming(
   text: string,
   provider: string,
-  functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer',
+  functionType: 'quotes' | 'context' | 'rewrite' | 'database' | 'analyzer' | 'views',
   onChunk: (chunk: string) => void,
   onComplete?: () => void,
   username?: string
